@@ -1,8 +1,8 @@
-# maximus GNOME Shell Extension
+# Maximus GNOME Shell Extension
 
-Description of what the extension does.
+The Maximus GNOME Shell Extension attempts to emulate the [Maximus](https://launchpad.net/maximus) package for the Ubuntu Netbook Remix.
 
-Screenshot of the extension.
+That is, it removes decoration (i.e. the title bar) from maximised windows, saving vertical real estate. For example, Google Chrome does this by default.
 
 Written 2012 by mathematical.coffee [mathematical.coffee@gmail.com](mailto:mathematical.coffee@gmail.com?subject=maximus%20question).
 Project webpage: [at  bitbucket](https://bitbucket.org/mathematicalcoffee/maximus-gnome-shell-extension).
@@ -35,6 +35,13 @@ All together now:
     gnome-shell-extension-tool -e maximus@mathematical.coffee.gmail.com
     # if you have GNOME 3.2:
     dconf read '/org/gnome/shell/enabled-extensions' | sed -r -e 's#\[(.+)\]#dconf write "/org/gnome/shell/enabled-extensions" [\1, '\'maximus@mathematical.coffee.gmail.com\'']#' | /bin/sh
+
+---
+
+# TODO List
+
+* support exclusion lists.
+* Screenshot of the extension.
 
 ---
 
