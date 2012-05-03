@@ -85,41 +85,38 @@ const Main = imports.ui.main;
  */
 
 const Gdk = imports.gi.Gdk;
-// Put your extension initialization code here
-function init(metadata) {
-    global.log('Example extension initalized');
+let maxID=null;
+let minID=null;
 
+// Put your extension initialization code here
+function init() {
 }
 
 function enable() {
     global.log('Maximus enabled');
 
-    // can do screen.get_active_window()
-    let screen = Gdk.Screen.get_default();
-    if ( screen ) {
-        // list of all windows: ARGH longer than the second option!
-        let winList = screen.get_toplevel_windows();
-        // want winList[i].get_window_type() == Gdk.WindowType.WINDOW_TOPLEVEL
-        // (possibly WINDOW_CHILD too? "child window used to implement GtkEntry")
-        // err but there's barely any of those
-
-        // NOTE: how do other apps get the window list?
-        // wins[0].set_decorations
-       
-       // OPTION 2: doesn't return as many windows 
-        let metaWorkspace = global.screen.get_active_workspace();
-        let windows = metaWorkspace.list_windows();
-
-    } else {
-        global.log('scream and die, you have no default screen?!');
-    }
-
-
-       
+    // TODO: is this just active workspace? WHAT ABOUT the others?
+    // FROM StatusTitleBar:
+    global.window_manager.connect('maximise',onMaximize);
+    global.window_manager.connect('unmaximise',onMaximize);
 
 }
 
 function disable() {
-    global.log('Example extension disabled');
+    global.window_manager.disconnect(maxID);
+    global.window_manager.disconnect(minID);
+}
 
+function onMaximise(shellwm, actor) {
+    global.log('onMaximize');
+    // convert to Gdk window
+    let win = GdkX11.X11Window.foreign_new_for_display( Gdk.Display.get_default(),
+            actor['x-window'] );
+    if ( win ) {
+    } else {
+        global.log('failed to create gdk window...');
+    }
+}
+function onUnmaximise(shellwm, actor) {
+    global.log('onUnmaximize');
 }
