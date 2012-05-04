@@ -124,11 +124,11 @@ function onMaximise(shellwm, actor) {
 
     /* Do undecoration */
     // TODO: do not undecorate if it's larger than screen.
-    // NOTE: set_decorations( 0 ) kills the window - it disappears. why? That's what Iwant.
-    // "Most window managers honor a decorations hint of 0 to disable all decorations, 
-    // BUT very few honor all possible combinations of bits.
-    cur_win.set_decorations( Gdk.WMDecoration.BORDER );
-    cur_win.process_updates(true); // or curr_win.flush() ?
+
+    // TODO: set_decorations(0) appears to hide the window & I have to show() it.
+    // It also does the "close all processes?" question
+    cur_win.set_decorations( 0 );
+    cur_win.show();
 
     // note: need to unmaximise/maximise first?
     //Gdk.WMDecoration: ALL BORDER RESIZEH TITLE MENU MINIMIZE MAXIMIZE
