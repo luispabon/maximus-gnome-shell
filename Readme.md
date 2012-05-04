@@ -34,7 +34,7 @@ All together now:
     # if you have GNOME 3.4:
     gnome-shell-extension-tool -e maximus@mathematical.coffee.gmail.com
     # if you have GNOME 3.2:
-    dconf read '/org/gnome/shell/enabled-extensions' | sed -r -e 's#\[(.+)\]#dconf write "/org/gnome/shell/enabled-extensions" [\1, '\'maximus@mathematical.coffee.gmail.com\'']#' | /bin/sh
+    dconf read '/org/gnome/shell/enabled-extensions' | sed -r -e 's#\[(.+)\]#dconf write "/org/gnome/shell/enabled-extensions" "[\1, '\'maximus@mathematical.coffee.gmail.com\'']"#' | /bin/sh
 
 ---
 

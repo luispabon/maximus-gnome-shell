@@ -7,14 +7,14 @@ const _ = Gettext.gettext;
 
 const Main = imports.ui.main;
 
-/* We don't automatically maximize all windows. 
+/* We don't automatically maximise all windows. 
  * Might build it in in the future if people really want it.
- * If you automatically maximize all windows, you need to have an exclude list
+ * If you automatically maximise all windows, you need to have an exclude list
  * as in maximus-app.c
  */
 
 /* This is how to remove decoration from maximised windows in gnome-shell:
- * http://www.webupd8.org/2011/05/how-to-remove-maximized-windows.html 
+ * http://www.webupd8.org/2011/05/how-to-remove-maximised-windows.html 
  *
  * Ideally (?) we'd listen to window state-changed events, and when the window 
  *  is maximised remove the frame, otherwise restore it.
@@ -24,7 +24,7 @@ const Main = imports.ui.main;
  * https://mail.gnome.org/archives/gnome-shell-list/2011-September/msg00136.html
  *
  * See also here for a python/gdk script that does it for the current active window.
- * http://askubuntu.com/questions/75284/remove-titlebar-from-maximized-terminal-window/75291#75291
+ * http://askubuntu.com/questions/75284/remove-titlebar-from-maximised-terminal-window/75291#75291
  *
  * This complies with "Method 2" of the first link.
  *
@@ -85,10 +85,103 @@ const Main = imports.ui.main;
  */
 
 const Gdk = imports.gi.Gdk;
+const GdkX11 = imports.gi.GdkX11;
+const Wnck = imports.gi.Wnck;
+
 let maxID=null;
 let minID=null;
 
-// Put your extension initialization code here
+// BAH these make the windows disappear!
+/*
+ * NOTE: if I convert a wnck window (get_xid()) to a gdk one, .unmaximise etc work        --> CORRECT XID
+ * If I convert a *metacity* window (/actor) via actor['x-window'] to gdk, they DON'T work --> INCORRECT XID
+ * Gnome-shell mailing list: Can't get XID of metacity window.
+ * Will have to use wnck/get current/verify against actor + import OR gdk get current
+ * --> then use gdk set hints
+ */
+function onMaximise(shellwm, actor) {
+    let titleOfMaximised = actor.get_meta_window().get_title();
+    global.log('onMaximise: ' + titleOfMaximised);
+    log('onMaximise: ' + titleOfMaximised);
+
+    /* Get Wnck version of actor (NOTE: why not just use Gdk.Screen.get_default().get_active_window()?) */
+    let cur_win = getWnckWindowForActor(actor);
+
+    if ( !cur_win ) {
+        global.log("Could't find wnck window with title " + titleOfMaximised);
+        log("Could't find wnck window with title " + titleOfMaximised);
+        return;
+    }
+
+    /* convert to Gdk window */
+    cur_win = GdkX11.X11Window.foreign_new_for_display( Gdk.Display.get_default(),
+            cur_win.get_xid() );
+    
+    if ( !cur_win ) {
+        // probably something like Chrome
+        return;
+    }
+
+    /* Do undecoration */
+    // TODO: do not undecorate if it's larger than screen.
+    // NOTE: set_decorations( 0 ) kills the window - it disappears. why? That's what Iwant.
+    // "Most window managers honor a decorations hint of 0 to disable all decorations, 
+    // BUT very few honor all possible combinations of bits.
+    cur_win.set_decorations( Gdk.WMDecoration.BORDER );
+    cur_win.process_updates(true); // or curr_win.flush() ?
+
+    // note: need to unmaximise/maximise first?
+    //Gdk.WMDecoration: ALL BORDER RESIZEH TITLE MENU MINIMIZE MAXIMIZE
+}
+
+function onUnmaximise(shellwm, actor) {
+    let titleOfMaximised = actor.get_meta_window().get_title();
+    global.log('onUnmaximise: ' + titleOfMaximised);
+    log('onUnmaximise: ' + titleOfMaximised);
+
+    /* Get Wnck version of actor */
+    let cur_win = getWnckWindowForActor(actor);
+
+    if ( !cur_win ) {
+        global.log("Could't find wnck window with title " + titleOfMaximised);
+        log("Could't find wnck window with title " + titleOfMaximised);
+        return;
+    }
+
+
+    /* convert to Gdk window */
+    cur_win = GdkX11.X11Window.foreign_new_for_display( Gdk.Display.get_default(),
+            cur_win.get_xid() );
+    
+    if ( !cur_win ) {
+        // probably something like Chrome
+        return;
+    }
+
+    /* Do redecoration */
+    // NOTE: what if the window is normally undecorated ???
+    cur_win.set_decorations( Gdk.WMDecoration.ALL );
+    cur_win.process_updates(true);
+}
+
+function getWnckWindowForActor( actor ) {
+    // find the WNCK version of the window (?!?!)
+    // What if the title changes (like you change tab instantly!)
+    // How do I compare some sort of ID?
+    let winList = Wnck.Screen.get_default().get_windows();
+    let cur_win = null;
+    let titleOfMaximised = actor.get_meta_window().get_title();
+
+    for ( let i=0; i<winList.length; i++ ) {
+        if ( winList[i].get_name() == titleOfMaximised ) {
+            cur_win = winList[i];
+            break;
+        }
+    }
+
+    return(cur_win);
+}
+
 function init() {
 }
 
@@ -97,26 +190,41 @@ function enable() {
 
     // TODO: is this just active workspace? WHAT ABOUT the others?
     // FROM StatusTitleBar:
-    global.window_manager.connect('maximise',onMaximize);
-    global.window_manager.connect('unmaximise',onMaximize);
+    maxID = global.window_manager.connect('maximize',onMaximise);
+    minID = global.window_manager.connect('unmaximize',onUnmaximise);
 
 }
 
 function disable() {
     global.window_manager.disconnect(maxID);
     global.window_manager.disconnect(minID);
-}
 
-function onMaximise(shellwm, actor) {
-    global.log('onMaximize');
-    // convert to Gdk window
-    let win = GdkX11.X11Window.foreign_new_for_display( Gdk.Display.get_default(),
-            actor['x-window'] );
-    if ( win ) {
-    } else {
-        global.log('failed to create gdk window...');
+
+    // TODO: need to redecorate windows we'v screwed with:
+    // Do we really need to go through wnck?
+    let winList = Wnck.Screen.get_default().get_windows();
+    let curwin;
+    let maximised,decorated,decoration;
+
+    for ( let i=0; i<winList.length; i++ ) {
+        curwin = GdkX11.X11Window.foreign_new_for_display( Gdk.Display.get_default(),
+                winList[i].get_xid() );
+
+        // see if we manually decorated it..
+        // TODO: see if *we* decorated it or someone else: set tag?
+        [decorated,decoration] = curwin.get_decorations();
+        if ( decorated && decoration != Gdk.WMDecoration.ALL ) {
+            // looks like if the window is maximised I have to unmaximise/remaxmise
+            // to have the redraw happen: process_updates & flush don't do it!
+            maximised = winList[i].is_maximized();
+            if ( maximised ) {
+                winList[i].unmaximize();
+            }
+            curwin.set_decorations( Gdk.WMDecoration.ALL );
+            if ( maximised ) {
+                winList[i].maximize();
+            }
+        }
     }
 }
-function onUnmaximise(shellwm, actor) {
-    global.log('onUnmaximize');
-}
+
