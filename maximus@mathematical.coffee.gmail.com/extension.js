@@ -99,6 +99,7 @@ let minID=null;
  * Will have to use wnck/get current/verify against actor + import OR gdk get current
  * --> then use gdk set hints
  */
+// Hey, it's started workign from GJS :(
 function onMaximise(shellwm, actor) {
     let titleOfMaximised = actor.get_meta_window().get_title();
     global.log('onMaximise: ' + titleOfMaximised);
@@ -123,12 +124,18 @@ function onMaximise(shellwm, actor) {
     }
 
     /* Do undecoration */
+    // OK: the following code works in gjs, python, everywhere *BUT*
+    // from the looking glass/as a gnome shell extension.
+    // "Doesn't work from within the compositor process/window manager"
+    // ARGH!
+    // (If called from gjs do Gtk.init(null) first)
+    // GLib.spawn_command_line_sync('cat /proc/stats'); for ext process?
+    // Could just use xprop _MOTIF_WM_HINTS: the third one is decoration.
+    
     // TODO: do not undecorate if it's larger than screen.
 
-    // TODO: set_decorations(0) appears to hide the window & I have to show() it.
-    // It also does the "close all processes?" question
     cur_win.set_decorations( 0 );
-    cur_win.show();
+    cur_win.process_all_updates();
 
     // note: need to unmaximise/maximise first?
     //Gdk.WMDecoration: ALL BORDER RESIZEH TITLE MENU MINIMIZE MAXIMIZE
@@ -199,7 +206,8 @@ function disable() {
     global.window_manager.disconnect(maxID);
     global.window_manager.disconnect(minID);
 
-
+/*
+ * THIS SEEMS TO CAUSE AN INFINITE LOOP
     // TODO: need to redecorate windows we'v screwed with:
     // Do we really need to go through wnck?
     let winList = Wnck.Screen.get_default().get_windows();
@@ -226,5 +234,6 @@ function disable() {
             }
         }
     }
+    */
 }
 
