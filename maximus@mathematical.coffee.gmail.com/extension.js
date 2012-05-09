@@ -1,37 +1,79 @@
-const Mainloop = imports.mainloop;
-const St = imports.gi.St;
+/*
+ * Maximus
+ * mathematical.coffee@gmail.com.
+ *
+ * This extension attempts to emulate the Maximus package[1] that 
+ * Ubuntu Netbook Remix had, back when people still used that.
+ *
+ * Basically whenever a window is maximised, its window decorations (title 
+ * bar, etc) are hidden so as to space a bit of vertical screen real-estate.
+ *
+ * This may sound petty, but believe me, on a 10" netbook it's fantastic!
+ * The only information lost is the title of the window, and in GNOME-shell
+ * you already have the current application's name in the top bar and can
+ * even get the window's title with the StatusTitleBar extension[2].
+ *
+ * Note that since the title bar for the window is gone when it's maximised,
+ * you might find it difficult to unmaximise the window.
+ * In this case, I recommend either the Window Options shell extension[3] which
+ * adds the minimise/restore/maximise/etc window menu to your title bar (NOTE:
+ * I wrote that, so it's a shameless plug),  OR
+ * refresh your memory on your system's keyboard shortcut for unmaximising a window
+ * (for me it's Ctrl+Super+Down to unmaximise, Ctrl+Super+Up to maximise).
+ *
+ * Small idiosyncracies:
+ * Note - these are simple enough for me to implement so if enough people let
+ * me know that they want this behaviour, I'll do it.
+ *
+ * * we only remove decoration from fully-maximised windows. If it's maximised
+ *   in one dimension only (like when you snap a window to take up half a screen),
+ *   window decoration remains.
+ * * the original Maximus also maximised all windows on startup. 
+ *   This doesn't (it was annoying).
+ *
+ * Help! It didn't work/I found a bug!
+ * 1. Make sure you can *reproduce* the bug reliably.
+ * 2. Do 'Ctrl + F2' and 'lg' and see if there are any errors produced by Maximus,
+ *    both in the 'Errors' window *and* the 'Extensions' > 'Maximus' > 'Show Errors'
+ *    tab (the 'Show Errors' is in GNOME 3.4+ only I think).
+ * 3. Disable all your extensions except Maximus and see if you can still reproduce
+ *    the bug. If so, mention this.
+ * 4. If you can't reproduce th bug with all extensions but Maximus disabled, then
+ *    gradually enable your extensions one-by-one until you work out which one(s)
+ *    together cause the bug, and mention these.
+ * 5. Open a new issue at [4].
+ * 6. Include how you can reproduce the bug and any relevant information from 2--4.
+ * 7. Also include:
+ * - your version of the extension (in metadata.json)
+ * - list of all your installed extensions (including disabled ones, as
+ *   this is no guarantee they won't interfere with other extensions)
+ * - your version of GNOME-shell (gnome-shell --version).
+ * 8. I'll try get back to you with a fix.
+ * (Brownie points: open a terminal, do `gnome-shell --replace` and reproduce the
+ *  bug. Include any errors that pop up in this terminal.)
+ *
+ *
+ * Note:
+ * It's actually possible to get the undecorate-on-maximise behaviour without 
+ * needing this extension. See the link [5] and in particular, the bit on editing
+ * your metacity theme metacity-theme-3.xml. ("Method 2: editing the theme").
+ *
+ * References:
+ * [1]:https://launchpad.net/maximus
+ * [2]:https://extensions.gnome.org/extension/59/status-title-bar/
+ * [3]:https://bitbucket.org/mathematicalcoffee/window-options-gnome-shell-extension
+ * [4]:https://bitbucket.org/mathematicalcoffee/maximus-gnome-shell-extension/issues
+ * [5]:http://www.webupd8.org/2011/05/how-to-remove-maximized-windows.html
+ *
+ */
 
-const Gettext = imports.gettext.domain('gnome-shell-extensions');
-const _ = Gettext.gettext;
+const GLib = imports.gi.GLib;
+const Mainloop = imports.mainloop;
+const Meta = imports.gi.Meta;
+const St = imports.gi.St;
+const Util = imports.misc.util;
 
 const Main = imports.ui.main;
-
-
-/* We don't automatically maximise all windows. 
- * Might build it in in the future if people really want it.
- * If you automatically maximise all windows, you need to have an exclude list
- * as in maximus-app.c
- *
- * TODO:
- * - windows maximised in one dimension only?
- * - multiple windows same name?
- * - listen to window-new in case windows *start* maximised: YES need this.
- * - Window manager warning: Treating resize request of legacy application 0x221d769 as a fullscreen request
- */
-
-/* 
- * This is how to remove decoration from maximised windows in gnome-shell:
- * http://www.webupd8.org/2011/05/how-to-remove-maximised-windows.html 
- *
- * One way to do it is to edit the Metacity window theme for the
- * 'frame_geometry name="max"' element, however this can't be done
- * on-the-fly in GNOME-shell as the window theme isn't to do with the 
- * shell theme.
- *
- */
-
-const Util = imports.misc.util;
-const Meta = imports.gi.Meta;
 
 let maxID=null;
 let minID=null;
@@ -39,56 +81,48 @@ let changeWorkspaceID=null;
 let workspaces=[];
 let onetime=null;
 
-/*
+/* onMaximise: called when a window is maximised and removes decorations.
+ *
  * If I use set_decorations(0) from within the GNOME shell extension (i.e.
  *  from within the compositor process), the window dies.
  * If I use the same code but use `gjs` to run it, the window undecorates
  *  properly.
  *
  * Hence I have to make some sort of external call to do the undecoration.
- * See the included .js and .py files for examples of how to do this with
- *  GDK. Alternatively, we can use xprop.
- *
- * The .js version needs 'gjs' binary which is installed with GNOME-shell.
- * The .py version needs 'pygobject' which is *not* installed by default.
- * To reduce the number of files needed to be bundled with the extension &
- *  executed, we'll use 'xprop'.
+ * I could use 'gjs' on a javascript file (and I'm pretty sure this is installed
+ *  with GNOME-shell too), but I decided to use a system call to xprop.
  *
  * We can use xprop using the window's title to identify the window, but
- *  prefer to use the window's X ID (in case the title changes between
- *  the signal being fired & command being sent).
- * You can get the window's X ID with wnck but not with the current Metacity
- *  gobject introspection!
- * 
- * For now I'll use the title to avoid loading in wnck.
+ *  prefer to use the window's X ID (in case the title changes, or there are
+ *  multiple windows with the same title).
  *
- * (Also: windowActor['x-window'] returns the X ID of the window manager's *frame*
- *  for the window, not for the window itself.)
+ * The Meta.Window object does *not* have a way to access a window's XID.
+ * However, the window's description seems to have it.
+ * Alternatively, a window's actor's 'x-window' property returns the XID
+ *  of the window *frame*, and so if we parse `xwininfo -children -id [frame_id]`
+ *  we can extract the child XID being the one we want.
  *
  * See here for xprop usage for undecoration: 
  * http://xrunhprof.wordpress.com/2009/04/13/removing-decorations-in-metacity/
  */
 function onMaximise(shellwm, actor) {
-    if ( !actor ) // then how did I get here?
-        return;
-
-    let titleOfMaximised = actor.get_meta_window().get_title();
-    global.log('onMaximise: ' + titleOfMaximised);
-    log('onMaximise: ' + titleOfMaximised);
+    let win = actor.get_meta_window();
+    //global.log('onMaximise: ' + win.get_title());
 
     // if not fully maximised, return.
-    if ( actor.get_meta_window().get_maximized() != 
+    if ( win.get_maximized() != 
         (Meta.MaximizeFlags.HORIZONTAL | Meta.MaximizeFlags.VERTICAL) ) {
             return;
     }
 
+    let id = guessWindowXID(win);
 
     /* Undecorate with xprop */
-    let cmd = ['xprop', '-name', titleOfMaximised,
+    let cmd = ['xprop', '-id', id,
                '-f', '_MOTIF_WM_HINTS', '32c',
                '-set', '_MOTIF_WM_HINTS',
                 '0x2, 0x0, 0x0, 0x0, 0x0'];
-    /* WM_HINTS: see MwmUtil.h from OpenMotif source (cvs.openmotif.org),
+    /* _MOTIF_WM_HINTS: see MwmUtil.h from OpenMotif source (cvs.openmotif.org),
      *  or rudimentary documentation here:
      * http://odl.sysworks.biz/disk$cddoc04sep11/decw$book/d3b0aa63.p264.decw$book
      *
@@ -99,32 +133,78 @@ function onMaximise(shellwm, actor) {
      * Input Mode: modeless, application modal, system model, ..
      * Status: tearoff window.
      */
+
+    // fallback: if couldn't get id for some reason, use the window's name
+    if ( !id ) {
+        cmd[1] = '-name';
+        cmd[2] = win.get_title();
+    }
     Util.spawn(cmd);
 }
 
-/* TODO: don't redecorate if it wasn't decorated in the first place! */
-/* Add a flag to the window with original decorations? */
-function onUnmaximise(shellwm, actor) {
-    if ( !actor ) // then how did I get here?
-        return;
+/* NOTE: we prefer to use the window's XID but this is not stored
+ * anywhere but in the window's description being [XID (%10s window title)].
+ * And I'm not sure I want to rely on that being the case always.
+ *
+ * If we use the windows' title, `xprop` grabs the "least-focussed" window
+ * (bottom of stack I suppose).
+ *
+ * Can match winow.get_startup_id() to WM_WINDOW_ROLE(STRING)
+ * If they're not equal, then try the XID ?
+ */
+function guessWindowXID(win) {
+    let id=null;
+    id = win.get_description().match(/0x[0-9a-f]+/);
+    if ( id ) {
+        id = id[0];
+        return id ;
+    }
 
-    let titleOfMaximised = actor.get_meta_window().get_title();
-    global.log('onUnmaximise: ' + titleOfMaximised);
-    log('onUnmaximise: ' + titleOfMaximised);
+    // use xwininfo
+    id = GLib.spawn_command_line_sync('xwininfo -children -id 0x%x'.format(act['x-window']));
+    if ( id[0] ) {
+        id = id[1].toString().split('child:')[1].match(/0x[0-9a-f]+/);
+        return id ;
+    }
+    return null ;
+}
+
+function onUnmaximise(shellwm, actor) {
+    //global.log('onUnmaximise: ' + win.get_title());
 
     /* Undecorate with xprop: 1 == DECOR_ALL */
-    let cmd = ['xprop', '-name', titleOfMaximised,
+    let id = guessWindowXID(actor.get_meta_window());
+    let cmd = ['xprop', '-id', id,
                '-f', '_MOTIF_WM_HINTS', '32c',
                '-set', '_MOTIF_WM_HINTS',
                 '0x2, 0x0, 0x1, 0x0, 0x0'];
+    // fallback: if couldn't get id for some reason, use the window's name
+    if ( !id ) {
+        cmd[1] = '-name';
+        cmd[2] = actor.get_meta_window().get_title();
+    }
     Util.spawn(cmd);
 }
 
 function onWindowAdded(ws, win) {
-    onMaximise(null, win.get_compositor_private());
+    /* Newly-created windows are added to the workspace before
+     * the compositor knows about them: get_compositor_private() is null.
+     * Additionally things like .get_maximized() aren't properly done yet.
+     * (see workspace.js _doAddWindow)
+     */
+    if ( !win.get_compositor_private() ) {
+        Mainloop.idle_add( function() {
+            onMaximise(null,win.get_compositor_private());
+            return false; // define as one-time event
+        });
+    }
 }
 
-function onChangeWorkspace() {
+/* Whenever the number of workspaces is changed,
+ * listen to an 'add window' event in case it starts
+ * maximised.
+ */
+function onChangeNWorkspaces() {
     let i,ws;
     for ( i=0; i<workspaces.length; ++i ) {
         workspaces[i].disconnect(workspaces[i]._MaximusWindowAddedId);
@@ -139,33 +219,36 @@ function onChangeWorkspace() {
     }
 }
 
-
 function init() {
 }
 
 function enable() {
-    global.log('Maximus enabled');
+    //global.log('Maximus enabled');
 
-    /* go through already-maximised windows & undecorate. 
-     * This needs a delay as the window list is not yet loaded
-     *  when the extension is loaded (or so it seems).
-     */
-
-    // TODO: is this just active workspace? WHAT ABOUT the others?
-    // FROM StatusTitleBar:
+    /* Connect events */
     maxID = global.window_manager.connect('maximize',onMaximise);
     minID = global.window_manager.connect('unmaximize',onUnmaximise);
     changeWorkspaceID = global.screen.connect('notify::n-workspaces',
-                            onChangeWorkspace);
-    // connect up window-added.
-    onChangeWorkspace();
+                            onChangeNWorkspaces);
 
-    onetime = GLib.timeout_add_seconds(0,1,function() { 
+    /* Go through already-maximised windows & undecorate. 
+     * This needs a delay as the window list is not yet loaded
+     *  when the extension is loaded.
+     * Also, connect up the 'window-added' event.
+     * Note that we do not connect this before the onMaximise loop 
+     *  because when one restarts the gnome-shell, window-added gets
+     *  fired for every currently-existing window, and then 
+     *  these windows will have onMaximise called twice on them.
+     */
+    onetime = Mainloop.idle_add( function() {
         let winActList = global.get_window_actors();
         for ( let i=0; i<winActList.length; i++ ) {
             onMaximise(null, winActList[i]);
         }
+        onChangeNWorkspaces();
+        return false; // define as one-time event
     });
+
 
 }
 
@@ -182,7 +265,6 @@ function disable() {
     workspaces=[];
 
     /* redecorate undecorated windows we screwed with */
-    // TODO: modal windows/ chrome ? How to tell *we* undecorated them?
     Mainloop.source_remove(onetime);
     let winActList = global.get_window_actors();
     for ( i=0; i<winActList.length; i++ ) {
