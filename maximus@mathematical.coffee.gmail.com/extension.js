@@ -1,6 +1,7 @@
 /*
- * Maximus
+ * Maximus v1.0
  * mathematical.coffee@gmail.com.
+ * May 2012.
  *
  * This extension attempts to emulate the Maximus package[1] that 
  * Ubuntu Netbook Remix had, back when people still used that.
