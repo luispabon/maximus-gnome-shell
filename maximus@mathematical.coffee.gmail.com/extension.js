@@ -195,9 +195,11 @@ function onWindowAdded(ws, win) {
      */
     if ( !win.get_compositor_private() ) {
         Mainloop.idle_add( function() {
-            onMaximise(null,win.get_compositor_private());
+            onMaximise(null, win.get_compositor_private());
             return false; // define as one-time event
         });
+    } else {
+        onMaximise(null, win.get_compositor_private());
     }
 }
 
