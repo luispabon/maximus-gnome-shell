@@ -1,12 +1,12 @@
 /*
- * Maximus v1.0
+ * Maximus v1.1
  * mathematical.coffee@gmail.com.
  * May 2012.
  *
- * This extension attempts to emulate the Maximus package[1] that 
+ * This extension attempts to emulate the Maximus package[1] that
  * Ubuntu Netbook Remix had, back when people still used that.
  *
- * Basically whenever a window is maximised, its window decorations (title 
+ * Basically whenever a window is maximised, its window decorations (title
  * bar, etc) are hidden so as to space a bit of vertical screen real-estate.
  *
  * This may sound petty, but believe me, on a 10" netbook it's fantastic!
@@ -20,7 +20,7 @@
  * adds the minimise/restore/maximise/etc window menu to your title bar (NOTE:
  * I wrote that, so it's a shameless plug),  OR
  * refresh your memory on your system's keyboard shortcut for unmaximising a window
- * (for me it's Ctrl+Super+Down to unmaximise, Ctrl+Super+Up to maximise).
+ * (for me it's Ctrl + Super + Down to unmaximise, Ctrl + Super + Up to maximise).
  *
  * Small idiosyncracies:
  * Note - these are simple enough for me to implement so if enough people let
@@ -29,7 +29,7 @@
  * * we only remove decoration from fully-maximised windows. If it's maximised
  *   in one dimension only (like when you snap a window to take up half a screen),
  *   window decoration remains.
- * * the original Maximus also maximised all windows on startup. 
+ * * the original Maximus also maximised all windows on startup.
  *   This doesn't (it was annoying).
  *
  * Help! It didn't work/I found a bug!
@@ -55,7 +55,7 @@
  *
  *
  * Note:
- * It's actually possible to get the undecorate-on-maximise behaviour without 
+ * It's actually possible to get the undecorate-on-maximise behaviour without
  * needing this extension. See the link [5] and in particular, the bit on editing
  * your metacity theme metacity-theme-3.xml. ("Method 2: editing the theme").
  *
@@ -76,11 +76,11 @@ const Util = imports.misc.util;
 
 const Main = imports.ui.main;
 
-let maxID=null;
-let minID=null;
-let changeWorkspaceID=null;
-let workspaces=[];
-let onetime=null;
+let maxID = null;
+let minID = null;
+let changeWorkspaceID = null;
+let workspaces = [];
+let onetime = null;
 
 /* onMaximise: called when a window is maximised and removes decorations.
  *
@@ -103,23 +103,22 @@ let onetime=null;
  *  of the window *frame*, and so if we parse `xwininfo -children -id [frame_id]`
  *  we can extract the child XID being the one we want.
  *
- * See here for xprop usage for undecoration: 
+ * See here for xprop usage for undecoration:
  * http://xrunhprof.wordpress.com/2009/04/13/removing-decorations-in-metacity/
  */
 function onMaximise(shellwm, actor) {
     let win = actor.get_meta_window();
-    //global.log('onMaximise: ' + win.get_title());
+    //log('onMaximise: ' + win.get_title() + 'doecrated? ' + win._maximusDecoratedOriginal);
 
-    // if not fully maximised, return.
-    if ( win.get_maximized() != 
-        (Meta.MaximizeFlags.HORIZONTAL | Meta.MaximizeFlags.VERTICAL) ) {
-            return;
+    /* don't undecorate if it is already undecorated, or if it's not fully maximised */
+    if (!win._maximusDecoratedOriginal || win.get_maximized() != (Meta.MaximizeFlags.HORIZONTAL | Meta.MaximizeFlags.VERTICAL)) {
+        return;
     }
 
-    let id = guessWindowXID(win);
+    let id = guessWindowXID(win),
 
     /* Undecorate with xprop */
-    let cmd = ['xprop', '-id', id,
+        cmd = ['xprop', '-id', id,
                '-f', '_MOTIF_WM_HINTS', '32c',
                '-set', '_MOTIF_WM_HINTS',
                 '0x2, 0x0, 0x0, 0x0, 0x0'];
@@ -136,7 +135,7 @@ function onMaximise(shellwm, actor) {
      */
 
     // fallback: if couldn't get id for some reason, use the window's name
-    if ( !id ) {
+    if (!id) {
         cmd[1] = '-name';
         cmd[2] = win.get_title();
     }
@@ -146,6 +145,7 @@ function onMaximise(shellwm, actor) {
 /* NOTE: we prefer to use the window's XID but this is not stored
  * anywhere but in the window's description being [XID (%10s window title)].
  * And I'm not sure I want to rely on that being the case always.
+ * (mutter/src/core/window-props.c)
  *
  * If we use the windows' title, `xprop` grabs the "least-focussed" window
  * (bottom of stack I suppose).
@@ -154,35 +154,50 @@ function onMaximise(shellwm, actor) {
  * If they're not equal, then try the XID ?
  */
 function guessWindowXID(win) {
-    let id=null;
-    id = win.get_description().match(/0x[0-9a-f]+/);
-    if ( id ) {
-        id = id[0];
-        return id ;
+    let id = null;
+    /* if window title has non-utf8 characters, get_description() complains
+     * "Failed to convert UTF-8 string to JS string: Invalid byte sequence in conversion input",
+     * event though get_title() works.
+     */
+    try {
+        id = win.get_description().match(/0x[0-9a-f]+/);
+        if (id) {
+            id = id[0];
+            return id ;
+        }
+    } catch (err) {
     }
 
-    // use xwininfo
-    id = GLib.spawn_command_line_sync('xwininfo -children -id 0x%x'.format(act['x-window']));
-    if ( id[0] ) {
-        id = id[1].toString().split('child:')[1].match(/0x[0-9a-f]+/);
-        return id ;
+    // use xwininfo, take first child.
+    let act = win.get_compositor_private();
+    if (act) {
+        id = GLib.spawn_command_line_sync('xwininfo -children -id 0x%x'.format(act['x-window']));
+        if (id[0]) {
+            id = id[1].toString().split(/child(?:ren)?:/)[1].match(/0x[0-9a-f]+/);
+            return id ;
+        }
     }
-    return null ;
+    return null;
 }
 
 function onUnmaximise(shellwm, actor) {
-    //global.log('onUnmaximise: ' + win.get_title());
+    //log('onUnmaximise: ' + win.get_title());
+    let win = actor.meta_window;
+    /* don't decorate if it's not meant to be decorated (like chrome with no 'use system title bars') */
+    if (!win._maximusDecoratedOriginal) {
+        return;
+    }
 
     /* Undecorate with xprop: 1 == DECOR_ALL */
-    let id = guessWindowXID(actor.get_meta_window());
-    let cmd = ['xprop', '-id', id,
+    let id = guessWindowXID(win),
+        cmd = ['xprop', '-id', id,
                '-f', '_MOTIF_WM_HINTS', '32c',
                '-set', '_MOTIF_WM_HINTS',
                 '0x2, 0x0, 0x1, 0x0, 0x0'];
     // fallback: if couldn't get id for some reason, use the window's name
-    if ( !id ) {
+    if (!id) {
         cmd[1] = '-name';
-        cmd[2] = actor.get_meta_window().get_title();
+        cmd[2] = win.get_title();
     }
     Util.spawn(cmd);
 }
@@ -193,8 +208,8 @@ function onWindowAdded(ws, win) {
      * Additionally things like .get_maximized() aren't properly done yet.
      * (see workspace.js _doAddWindow)
      */
-    if ( !win.get_compositor_private() ) {
-        Mainloop.idle_add( function() {
+    if (!win.get_compositor_private()) {
+        Mainloop.idle_add(function () {
             onMaximise(null, win.get_compositor_private());
             return false; // define as one-time event
         });
@@ -208,17 +223,18 @@ function onWindowAdded(ws, win) {
  * maximised.
  */
 function onChangeNWorkspaces() {
-    let i,ws;
-    for ( i=0; i<workspaces.length; ++i ) {
+    let i, ws;
+    i = workspaces.length;
+    while (i--) {
         workspaces[i].disconnect(workspaces[i]._MaximusWindowAddedId);
     }
 
     workspaces = [];
-    for ( i=0; i<global.screen.n_workspaces; ++i ) {
+    i = global.screen.n_workspaces;
+    while (i--) {
         ws = global.screen.get_workspace_by_index(i);
-        workspaces[i] = global.screen.get_workspace_by_index(i);
-        ws._MaximusWindowAddedId = ws.connect('window-added',
-                                              onWindowAdded);
+        workspaces.push(ws);
+        ws._MaximusWindowAddedId = ws.connect('window-added', onWindowAdded);
     }
 }
 
@@ -231,28 +247,28 @@ function enable() {
     /* Connect events */
     maxID = global.window_manager.connect('maximize',onMaximise);
     minID = global.window_manager.connect('unmaximize',onUnmaximise);
-    changeWorkspaceID = global.screen.connect('notify::n-workspaces',
-                            onChangeNWorkspaces);
+    changeWorkspaceID = global.screen.connect('notify::n-workspaces', onChangeNWorkspaces);
 
-    /* Go through already-maximised windows & undecorate. 
+    /* Go through already-maximised windows & undecorate.
      * This needs a delay as the window list is not yet loaded
      *  when the extension is loaded.
      * Also, connect up the 'window-added' event.
-     * Note that we do not connect this before the onMaximise loop 
+     * Note that we do not connect this before the onMaximise loop
      *  because when one restarts the gnome-shell, window-added gets
-     *  fired for every currently-existing window, and then 
+     *  fired for every currently-existing window, and then
      *  these windows will have onMaximise called twice on them.
      */
-    onetime = Mainloop.idle_add( function() {
-        let winActList = global.get_window_actors();
-        for ( let i=0; i<winActList.length; i++ ) {
-            onMaximise(null, winActList[i]);
+    onetime = Mainloop.idle_add(function () {
+        let winList = global.get_window_actors().map(function (w) { return w.meta_window; }),
+            i       = winList.length;
+        while (i--) {
+            /* store original decorated state to restore after. If undefined, then decorated. */
+            winList[i]._maximusDecoratedOriginal = winList[i].decorated !== false || false;
+            onMaximise(null, winList[i].get_compositor_private());
         }
         onChangeNWorkspaces();
         return false; // define as one-time event
     });
-
-
 }
 
 function disable() {
@@ -261,18 +277,22 @@ function disable() {
     global.window_manager.disconnect(changeWorkspaceID);
 
     /* disconnect window-added from workspaces */
-    let i;
-    for ( i=0; i<workspaces.length; i++ ) {
+    let i = workspaces.length;
+    while (i--) {
         workspaces[i].disconnect(workspaces[i]._MaximusWindowAddedId);
     }
-    workspaces=[];
+    workspaces = [];
 
     /* redecorate undecorated windows we screwed with */
     Mainloop.source_remove(onetime);
-    let winActList = global.get_window_actors();
-    for ( i=0; i<winActList.length; i++ ) {
-        if ( !winActList[i].get_meta_window().decorated ) {
-            onUnmaximise(null,winActList[i]);
+    let winList = global.get_window_actors().map(function (w) { return w.meta_window; }),
+        i       = winList.length;
+    while (i--) {
+        if (winList[i].hasOwnProperty('_maximusDecoratedOriginal')) {
+            if (!winList[i].decorated && winList[i]._maximusDecoratedOriginal) {
+                onUnmaximise(null, winList[i].get_compositor_private());
+            }
+            delete winList[i]._maximusDecoratedOriginal;
         }
     }
 }
