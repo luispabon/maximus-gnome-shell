@@ -14,3 +14,6 @@ all:
 
 zip: clean all
 	zip -rq $(EXTENSION)$(EXTENSION_BASE).zip $(FILES:%=$(EXTENSION)$(EXTENSION_BASE)/%)
+
+dev-zip: clean all
+	zip -rqj $(EXTENSION)$(EXTENSION_BASE).zip $(FILES:%=$(EXTENSION)$(EXTENSION_BASE)/%)
