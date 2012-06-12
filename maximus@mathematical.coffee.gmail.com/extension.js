@@ -1,5 +1,5 @@
 /*
- * Maximus v1.1
+ * Maximus v1.2
  * mathematical.coffee@gmail.com.
  * May 2012.
  *
@@ -68,6 +68,13 @@
  *
  */
 
+/*** If you want to undecorate half-maximised windows then change this to true. ***/
+/* Sometimes I find it doesn't redecorate windows on unmaximise, but I can't
+ * reliably reproduce this behaviour - if you can let me know so I can fix it.
+ */
+const undecorateHalfMaximised = false;
+
+/*** Code proper, don't edit anything below **/
 const GLib = imports.gi.GLib;
 const Mainloop = imports.mainloop;
 const Meta = imports.gi.Meta;
@@ -75,6 +82,7 @@ const St = imports.gi.St;
 const Util = imports.misc.util;
 
 const Main = imports.ui.main;
+
 
 let maxID = null;
 let minID = null;
@@ -107,11 +115,14 @@ let onetime = null;
  * http://xrunhprof.wordpress.com/2009/04/13/removing-decorations-in-metacity/
  */
 function onMaximise(shellwm, actor) {
-    let win = actor.get_meta_window();
-    //log('onMaximise: ' + win.get_title() + 'doecrated? ' + win._maximusDecoratedOriginal);
+    let win = actor.get_meta_window(),
+        max = win.get_maximized();
+    //log('onMaximise: ' + win.get_title() + ' decorated? ' + win._maximusDecoratedOriginal);
 
     /* don't undecorate if it is already undecorated, or if it's not fully maximised */
-    if (!win._maximusDecoratedOriginal || win.get_maximized() != (Meta.MaximizeFlags.HORIZONTAL | Meta.MaximizeFlags.VERTICAL)) {
+    if (!win._maximusDecoratedOriginal || 
+            (undecorateHalfMaximised && !max) ||
+            (!undecorateHalfMaximised && max != (Meta.MaximizeFlags.HORIZONTAL | Meta.MaximizeFlags.VERTICAL))) {
         return;
     }
 
@@ -139,6 +150,7 @@ function onMaximise(shellwm, actor) {
         cmd[1] = '-name';
         cmd[2] = win.get_title();
     }
+
     Util.spawn(cmd);
 }
 
@@ -223,8 +235,8 @@ function onWindowAdded(ws, win) {
  * maximised.
  */
 function onChangeNWorkspaces() {
-    let i, ws;
-    i = workspaces.length;
+    let ws, 
+        i = workspaces.length;
     while (i--) {
         workspaces[i].disconnect(workspaces[i]._MaximusWindowAddedId);
     }
@@ -245,8 +257,8 @@ function enable() {
     //global.log('Maximus enabled');
 
     /* Connect events */
-    maxID = global.window_manager.connect('maximize',onMaximise);
-    minID = global.window_manager.connect('unmaximize',onUnmaximise);
+    maxID = global.window_manager.connect('maximize', onMaximise);
+    minID = global.window_manager.connect('unmaximize', onUnmaximise);
     changeWorkspaceID = global.screen.connect('notify::n-workspaces', onChangeNWorkspaces);
 
     /* Go through already-maximised windows & undecorate.
@@ -284,7 +296,10 @@ function disable() {
     workspaces = [];
 
     /* redecorate undecorated windows we screwed with */
-    Mainloop.source_remove(onetime);
+    if (onetime) {
+        Mainloop.source_remove(onetime);
+        onetime = 0;
+    }
     let winList = global.get_window_actors().map(function (w) { return w.meta_window; }),
         i       = winList.length;
     while (i--) {
