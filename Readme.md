@@ -16,6 +16,18 @@ Written 2012 by mathematical.coffee [mathematical.coffee@gmail.com](mailto:mathe
 Project webpage: [at  bitbucket](https://bitbucket.org/mathematicalcoffee/maximus-gnome-shell-extension).
 
 ---
+# Configuration
+
+By default, only fully-maximised windows are undecorated.
+If you also want to undecorate half-maximised windows, edit the line in `extension.js` to change this line:
+
+    const undecorateHalfMaximised = false;
+
+to this (change the `false` to `true`):
+
+    const undecorateHalfMaximised = true;
+
+---
 
 # Installation
 
