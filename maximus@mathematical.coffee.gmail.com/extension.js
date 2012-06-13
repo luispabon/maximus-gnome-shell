@@ -1,5 +1,5 @@
 /*
- * Maximus v1.2
+ * Maximus v1.2.1
  * mathematical.coffee@gmail.com.
  * May 2012.
  *
@@ -222,6 +222,7 @@ function onWindowAdded(ws, win) {
      */
     if (!win.get_compositor_private()) {
         Mainloop.idle_add(function () {
+            win._maximusDecoratedOriginal = win.decorated !== false || false;
             onMaximise(null, win.get_compositor_private());
             return false; // define as one-time event
         });
