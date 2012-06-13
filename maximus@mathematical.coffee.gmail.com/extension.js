@@ -220,9 +220,9 @@ function onWindowAdded(ws, win) {
      * Additionally things like .get_maximized() aren't properly done yet.
      * (see workspace.js _doAddWindow)
      */
+    win._maximusDecoratedOriginal = win.decorated !== false || false;
     if (!win.get_compositor_private()) {
         Mainloop.idle_add(function () {
-            win._maximusDecoratedOriginal = win.decorated !== false || false;
             onMaximise(null, win.get_compositor_private());
             return false; // define as one-time event
         });
