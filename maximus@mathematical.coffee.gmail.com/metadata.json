@@ -5,12 +5,9 @@
  "name": "Maximus",
  "description": "Undecorate maximized windows, like Ubuntu's old 'Maximus' package. See readme at extension homepage.",
  "shell-version": [ 
-     "3.2" ,
-     "3.2.2.1",
-     "3.4",
-     "3.4.1"
+     "3.4"
  ],
  "url": "https://bitbucket.org/mathematicalcoffee/maximus-gnome-shell-extension",
- "version": 1,
- "dev-version": "1.2.1"
+ "version": 2,
+ "dev-version": "1.0_gnome3.4"
 }
