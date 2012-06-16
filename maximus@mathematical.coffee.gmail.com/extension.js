@@ -109,8 +109,8 @@ function setHideTitlebar(win, hide, stopAdding) {
      * See (eg) mutter/src/window-props.c 
      */
     let cmd = ['xprop', '-id', id,
-           '-f', '_GTK_HIDE_TITLEBAR_WHEN_MAXIMISED', '32c',
-           '-set', '_GTK_HIDE_TITLEBAR_WHEN_MAXIMISED',
+           '-f', '_GTK_HIDE_TITLEBAR_WHEN_MAXIMIZED', '32c',
+           '-set', '_GTK_HIDE_TITLEBAR_WHEN_MAXIMIZED',
            (hide ? '0x1' : '0x0')];
 
     // fallback: if couldn't get id for some reason, use the window's name
@@ -207,7 +207,7 @@ function enable() {
         let winList = global.get_window_actors().map(function (w) { return w.meta_window; }),
             i       = winList.length;
         while (i--) {
-            setHideTielebar(winList[i], true);
+            setHideTitlebar(winList[i], true);
         }
         onChangeNWorkspaces();
         return false; // define as one-time event
