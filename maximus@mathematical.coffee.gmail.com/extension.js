@@ -74,6 +74,20 @@
  */
 const undecorateHalfMaximised = false;
 
+/*** Whitelists/blacklists ***/
+const BLACKLIST = true; // if it's a white list, change this to FALSE
+// apps to blacklist or whitelist. If blacklist, all windows *but* these
+// will be undecorated on maximize. If whitelist, *only* these windows will
+// be undecorated on maximize.
+// You have to add the wmclass to the list. To see this, do Alt+F2 > Windows >
+// look at 'wmclass'.
+// It is *CASE SENSITIVE*.
+const WMLIST = [ 
+    // FOR EXAMPLE to leave terminal & thunderbird windows alone:
+    //'Terminal',
+    //'Thunderbird'
+];
+
 /*** Code proper, don't edit anything below **/
 const GLib = imports.gi.GLib;
 const Mainloop = imports.mainloop;
@@ -116,9 +130,14 @@ let onetime = null;
  */
 function onMaximise(shellwm, actor) {
     let win = actor.get_meta_window(),
-        max = win.get_maximized();
-    //log('onMaximise: ' + win.get_title() + ' decorated? ' + win._maximusDecoratedOriginal);
+        max = win.get_maximized(),
+        inList = WMLIST.length > 0 && WMLIST.indexOf(win.get_wm_class()) >= 0;
 
+    //log('onMaximise: ' + win.get_title() + ' [' + win.get_wm_class() + ']');
+    /* Don't undecorate if it is in the BLACKLIST or not in the whitelist */
+    if ((BLACKLIST && inList) || (!BLACKLIST && !inList)) {
+        return;
+    }
     /* don't undecorate if it is already undecorated, or if it's not fully maximised */
     if (!win._maximusDecoratedOriginal || 
             (undecorateHalfMaximised && !max) ||
