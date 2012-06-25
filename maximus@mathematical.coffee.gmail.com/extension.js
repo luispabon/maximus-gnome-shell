@@ -138,7 +138,7 @@ function onMaximise(shellwm, actor) {
 
     // do nothing if maximis isn't managing decorations for this window
     if (!win._maximusDecoratedOriginal) {
-        return true;
+        return;
     }
 
     // if this is a partial maximization
