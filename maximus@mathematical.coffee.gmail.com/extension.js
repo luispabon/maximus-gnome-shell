@@ -69,9 +69,6 @@
  */
 
 /*** If you want to undecorate half-maximised windows then change this to true. ***/
-/* Sometimes I find it doesn't redecorate windows on unmaximise, but I can't
- * reliably reproduce this behaviour - if you can let me know so I can fix it.
- */
 const undecorateHalfMaximised = false;
 
 /*** Whitelists/blacklists ***/
@@ -82,7 +79,7 @@ const BLACKLIST = true; // if it's a white list, change this to FALSE
 // You have to add the wmclass to the list. To see this, do Alt+F2 > Windows >
 // look at 'wmclass'.
 // It is *CASE SENSITIVE*.
-const WMLIST = [ 
+const WMLIST = [
     // FOR EXAMPLE to leave terminal & thunderbird windows alone:
     //'Terminal',
     //'Thunderbird'
@@ -138,11 +135,18 @@ function onMaximise(shellwm, actor) {
     if ((BLACKLIST && inList) || (!BLACKLIST && !inList)) {
         return;
     }
-    /* don't undecorate if it is already undecorated, or if it's not fully maximised */
-    if (!win._maximusDecoratedOriginal || 
-            (undecorateHalfMaximised && !max) ||
-            (!undecorateHalfMaximised && max != (Meta.MaximizeFlags.HORIZONTAL | Meta.MaximizeFlags.VERTICAL))) {
-        return;
+
+    // do nothing if maximis isn't managing decorations for this window
+    if (!win._maximusDecoratedOriginal) {
+        return true;
+    }
+
+    // if this is a partial maximization
+    if( max != (Meta.MaximizeFlags.HORIZONTAL | Meta.MaximizeFlags.VERTICAL)) {
+        // if we want decorations for partial maximization
+        if (!undecorateHalfMaximised) {
+            return decorate(win);
+        }
     }
 
     let id = guessWindowXID(win),
@@ -218,7 +222,10 @@ function onUnmaximise(shellwm, actor) {
     if (!win._maximusDecoratedOriginal) {
         return;
     }
+    return decorate(win);
+}
 
+function decorate(win) {
     /* Undecorate with xprop: 1 == DECOR_ALL */
     let id = guessWindowXID(win),
         cmd = ['xprop', '-id', id,
@@ -255,7 +262,7 @@ function onWindowAdded(ws, win) {
  * maximised.
  */
 function onChangeNWorkspaces() {
-    let ws, 
+    let ws,
         i = workspaces.length;
     while (i--) {
         workspaces[i].disconnect(workspaces[i]._MaximusWindowAddedId);
