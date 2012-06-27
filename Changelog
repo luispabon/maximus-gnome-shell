@@ -1,0 +1,15 @@
+v1.3:
+* FEATURE: added the ability to blacklist or whitelist applications [m.coffee]
+* BUGFIX: windows should redecorate on full -> partial window maximization if
+undecorateHalfMaximized is false [Michael Kirk]
+* BUGFIX (guessWindowXID): return a string not a vector for the window X ID if 
+parsing the output of `xwininfo -children` [m.coffee; #4]
+* BUGFIX: (guessWindowXID): if a window is frameless then we want it's actor's
+x-window as the X ID, not that window's child. [m.coffee]
+* BUGFIX (partial): use Meta.prefs_set_force_fullscreen(false) to make it not
+so easy to get applications stuck in fullscreen mode (notably Thunderbird)
+[m.coffee; #6]
+* Misc code reorganisation (decorate, undecorate, guessWindowXID functions
+are the core ones. The callbacks simply make use of these) [m.coffee, Michael Kirk]
+* metadata.json: updated version number so that it will match that on e.g.o
+(even though in reality we're only up to v2).

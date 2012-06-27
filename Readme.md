@@ -31,8 +31,10 @@ to this (change the `false` to `true`):
 
 # Installation
 
-## The easy way (recommended):
+## **[NEW!]** The easy way (recommended):
+One-click install from [extensions.gnome.org](https://extensions.gnome.org/extension/354/maximus/)!
 
+## From this website:
 1. Download the .zip file on the [Downloads page](https://bitbucket.org/mathematicalcoffee/maximus-gnome-shell-extension/downloads).
 2. Open `gnome-tweak-tool`, go to "Shell Extensions", "Install Extension" and select the .zip file.
 
