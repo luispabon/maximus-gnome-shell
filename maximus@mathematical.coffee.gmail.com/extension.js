@@ -3,7 +3,7 @@
  * Amy Chan <mathematical.coffee@gmail.com>
  * Other contributors:
  * - Michael Kirk
- * May 2012.
+ * May-- 2012.
  *
  * This extension attempts to emulate the Maximus package[1] that
  * Ubuntu Netbook Remix had, back when people still used that.
