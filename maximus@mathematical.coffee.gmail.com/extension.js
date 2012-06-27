@@ -136,7 +136,7 @@ function onMaximise(shellwm, actor) {
         return;
     }
 
-    // do nothing if maximis isn't managing decorations for this window
+    // do nothing if maximus isn't managing decorations for this window
     if (!win._maximusDecoratedOriginal) {
         return;
     }
@@ -226,7 +226,7 @@ function onUnmaximise(shellwm, actor) {
 }
 
 function decorate(win) {
-    /* Undecorate with xprop: 1 == DECOR_ALL */
+    /* Decorate with xprop: 1 == DECOR_ALL */
     let id = guessWindowXID(win),
         cmd = ['xprop', '-id', id,
                '-f', '_MOTIF_WM_HINTS', '32c',
