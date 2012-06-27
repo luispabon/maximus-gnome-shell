@@ -1,0 +1,8 @@
+v1.3:
+* FEATURE: added the ability to blacklist or whitelist applications [m.coffee]
+* BUGFIX: windows should redecorate on full -> partial window maximization if
+undecorateHalfMaximized is false [Michael Kirk]
+* BUGFIX: return a string not a vector for the window X ID if parsing the
+output of `xwininfo -children` [m.coffee; #4]
+* Misc code reorganisation (decorate, undecorate, guessWindowXID functions
+are the core ones. The callbacks simply make use of these) [m.coffee, Michael Kirk]
