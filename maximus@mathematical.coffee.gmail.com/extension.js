@@ -99,6 +99,7 @@ let minID = null;
 let changeWorkspaceID = null;
 let workspaces = [];
 let onetime = null;
+let oldFullscreenPref = null;
 
 function LOG(message) {
     log(message);
@@ -201,8 +202,23 @@ function guessWindowXID(win) {
     if (act) {
         id = GLib.spawn_command_line_sync('xwininfo -children -id 0x%x'.format(act['x-window']));
         if (id[0]) {
-            id = id[1].toString().split(/child(?:ren)?:/)[1].match(/0x[0-9a-f]+/);
-            return id[0];
+            let str = id[1].toString();
+
+            /* The X ID of the window is the one preceding the target window's title.
+             * This is to handle cases where the window has no frame and so
+             * act['x-window'] is actually the X ID we want, not the child.
+             */
+            let regexp = new RegExp('(0x[0-9a-f]+) +"%s"'.format(win.title));
+            id = str.match(regexp);
+            if (id) {
+                return id[1];
+            }
+
+            /* Otherwise, just grab the child and hope for the best */
+            id = str.split(/child(?:ren)?:/)[1].match(/0x[0-9a-f]+/);
+            if (id) {
+                return id[0];
+            }
         }
     }
     return null;
@@ -316,6 +332,19 @@ function enable() {
         onChangeNWorkspaces();
         return false; // define as one-time event
     });
+
+    /* this is needed to prevent Metacity from interpreting an attempted drag
+     * of an undecorated window as a fullscreen request. Otherwise thunderbird
+     * (in particular) has no way to get out of fullscreen, resulting in the user
+     * being stuck there.
+     * See issue #6
+     * https://bitbucket.org/mathematicalcoffee/maximus-gnome-shell-extension/issue/6
+     *
+     * Once we can properly set the window's hide_titlebar_when_maximized property
+     * this will no loner be necessary.
+     */
+    oldFullscreenPref = Meta.prefs_get_force_fullscreen();
+    Meta.prefs_set_force_fullscreen(false);
 }
 
 function disable() {
@@ -345,5 +374,8 @@ function disable() {
             delete winList[i]._maximusDecoratedOriginal;
         }
     }
+
+    /* restore old meta force fullscreen pref */
+    Meta.prefs_set_force_fullscreen(oldFullscreenPref);
 }
 
