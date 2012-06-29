@@ -71,6 +71,7 @@ One-click install from [extensions.gnome.org](https://extensions.gnome.org/exten
 # Branch Info (for developers)
 
 * 'Stable' branch works with GNOME 3.2 and GNOME 3.4. No fancy gsettings or UI for setting options (this extension doesn't have options for the moment).
-* 'gnome3.4' branch: an improperly-named branch. This is an attempt to set the `_GDK_HIDE_TITLEBAR_WHEN_MAXIMIZED` window hint instead of using `_MOTIF_WM_HINTS`.
+* 'gnome3.4' branch: attempt to port settings to prefs.js (for use with `gnome-shell-extension-prefs`
+* 'set_hide_titlebar' bookmark on the 'gnome3.4' branch: An attempt to set the `_GDK_HIDE_TITLEBAR_WHEN_MAXIMIZED` window hint instead of using `_MOTIF_WM_HINTS`.
 Works but depends on your window theme (in particular Ubuntu ones do not respect the hint), so abandoned (for now).
 * 'Default' branch - where development happens. It is *not* guaranteed to be stable at *any* commit.

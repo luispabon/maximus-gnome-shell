@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist gettext-domain="gnome-shell-extensions">
+  <schema path="org/gnome/shell/extensions/maximus/" id="org.gnome.shell.extensions.maximus">
+    <key type="b" name="undecorate-half-maximized">
+      <default>false</default>
+      <summary>Whether to undecorate half-maximized windows.</summary>
+      <description>Whether to undecorate half-maximized windows.</description>
+    </key>
+    <key type="b" name="is-blacklist">
+      <default>true</default>
+      <summary>Whether the 'window-list' key describes a blacklist or a whitelist.</summary>
+      <description>Whether the 'window-list' key describes a blacklist or a whitelist.</description>
+    </key>
+    <key type="as" name="window-list">
+      <default>[ ]</default>
+      <summary>Blacklist/whitelist</summary>
+      <description>A list of wmclasses to blacklist or whitelist (depending on the 'is-blacklist' key).</description>
+    </key>
+  </schema>
+</schemalist>

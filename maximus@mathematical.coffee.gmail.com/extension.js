@@ -67,23 +67,6 @@
  *
  */
 
-/*** If you want to undecorate half-maximised windows then change this to true. ***/
-const undecorateHalfMaximised = false;
-
-/*** Whitelists/blacklists ***/
-const BLACKLIST = true; // if it's a white list, change this to FALSE
-// apps to blacklist or whitelist. If blacklist, all windows *but* these
-// will be undecorated on maximize. If whitelist, *only* these windows will
-// be undecorated on maximize.
-// You have to add the wmclass to the list. To see this, do Alt+F2 > Windows >
-// look at 'wmclass'.
-// It is *CASE SENSITIVE*.
-const WMLIST = [
-    // FOR EXAMPLE to leave terminal & thunderbird windows alone:
-    //'Terminal',
-    //'Thunderbird'
-];
-
 /*** Code proper, don't edit anything below **/
 const GLib = imports.gi.GLib;
 const Mainloop = imports.mainloop;
@@ -92,14 +75,22 @@ const St = imports.gi.St;
 const Util = imports.misc.util;
 
 const Main = imports.ui.main;
+const ExtensionUtils = imports.misc.extensionUtils;
+
+const Gettext = imports.gettext.domain('gnome-shell-extensions');
+const _ = Gettext.gettext;
+
+const Me = ExtensionUtils.getCurrentExtension();
+const Convenience = Me.imports.convenience;
+const Prefs = Me.imports.prefs;
 
 
 let maxID = null;
 let minID = null;
 let changeWorkspaceID = null;
 let workspaces = [];
-let onetime = null;
 let oldFullscreenPref = null;
+let settings = null;
 
 function LOG(message) {
     log(message);
@@ -229,11 +220,13 @@ function guessWindowXID(win) {
 function onMaximise(shellwm, actor) {
     let win = actor.get_meta_window(),
         max = win.get_maximized(),
-        inList = WMLIST.length > 0 && WMLIST.indexOf(win.get_wm_class()) >= 0;
+        isBlacklist = settings.get_boolean(Prefs.IS_BLACKLIST_KEY),
+        list = settings.get_strv(Prefs.BLACKLIST_KEY),
+        inList = list.length > 0 && list.indexOf(win.get_wm_class()) >= 0;
 
     LOG('onMaximise: ' + win.get_title() + ' [' + win.get_wm_class() + ']');
-    /* Don't undecorate if it is in the BLACKLIST or not in the whitelist */
-    if ((BLACKLIST && inList) || (!BLACKLIST && !inList)) {
+    /* Don't undecorate if it is in the settings.get_boolean(Prefs.IS_BLACKLIST_KEY) or not in the whitelist */
+    if ((isBlacklist && inList) || (!isBlacklist && !inList)) {
         return;
     }
 
@@ -245,7 +238,7 @@ function onMaximise(shellwm, actor) {
     // if this is a partial maximization
     if( max != (Meta.MaximizeFlags.HORIZONTAL | Meta.MaximizeFlags.VERTICAL)) {
         // if we want decorations for partial maximization
-        if (!undecorateHalfMaximised) {
+        if (!settings.get_boolean(Prefs.UNDECORATE_HALF_MAXIMIZED_KEY)) {
             decorate(win);
             return;
         }
@@ -304,9 +297,12 @@ function onChangeNWorkspaces() {
 }
 
 function init() {
+    Convenience.initTranslations();
+    settings = convenience.getSettings();
 }
 
-function enable() {
+/* start listening to events and affect already-existing windows. */
+function startUndecorating () {
     /* Connect events */
     maxID = global.window_manager.connect('maximize', onMaximise);
     minID = global.window_manager.connect('unmaximize', onUnmaximise);
@@ -321,7 +317,7 @@ function enable() {
      *  fired for every currently-existing window, and then
      *  these windows will have onMaximise called twice on them.
      */
-    onetime = Mainloop.idle_add(function () {
+    Mainloop.idle_add(function () {
         let winList = global.get_window_actors().map(function (w) { return w.meta_window; }),
             i       = winList.length;
         while (i--) {
@@ -332,6 +328,37 @@ function enable() {
         onChangeNWorkspaces();
         return false; // define as one-time event
     });
+}
+
+/* stop listening to events, restore all windows back to their original
+ * decoration state. */
+function stopUndecorating () {
+    global.window_manager.disconnect(maxID);
+    global.window_manager.disconnect(minID);
+    global.window_manager.disconnect(changeWorkspaceID);
+
+    /* disconnect window-added from workspaces */
+    let i = workspaces.length;
+    while (i--) {
+        workspaces[i].disconnect(workspaces[i]._MaximusWindowAddedId);
+        delete workspaces[i]._MaximusWindowAddedId;
+    }
+    workspaces = [];
+
+    let winList = global.get_window_actors().map(function (w) { return w.meta_window; }),
+        i       = winList.length;
+    while (i--) {
+        if (winList[i].hasOwnProperty('_maximusDecoratedOriginal')) {
+            if (!winList[i].decorated && winList[i]._maximusDecoratedOriginal) {
+                onUnmaximise(null, winList[i].get_compositor_private());
+            }
+            delete winList[i]._maximusDecoratedOriginal;
+        }
+    }
+}
+
+function enable() {
+    startUndecorating();
 
     /* this is needed to prevent Metacity from interpreting an attempted drag
      * of an undecorated window as a fullscreen request. Otherwise thunderbird
@@ -345,37 +372,25 @@ function enable() {
      */
     oldFullscreenPref = Meta.prefs_get_force_fullscreen();
     Meta.prefs_set_force_fullscreen(false);
+
+    /* Monitor settings changes */
+    settingsChangedID = settings.connect('changed', function (settings, key) {
+        // redecorate every window and undecorate again according to the
+        // new settings.
+        stopUndecorating(); 
+        startUndecorating();
+    });
 }
 
 function disable() {
-    global.window_manager.disconnect(maxID);
-    global.window_manager.disconnect(minID);
-    global.window_manager.disconnect(changeWorkspaceID);
-
-    /* disconnect window-added from workspaces */
-    let i = workspaces.length;
-    while (i--) {
-        workspaces[i].disconnect(workspaces[i]._MaximusWindowAddedId);
-    }
-    workspaces = [];
-
-    /* redecorate undecorated windows we screwed with */
-    if (onetime) {
-        Mainloop.source_remove(onetime);
-        onetime = 0;
-    }
-    let winList = global.get_window_actors().map(function (w) { return w.meta_window; }),
-        i       = winList.length;
-    while (i--) {
-        if (winList[i].hasOwnProperty('_maximusDecoratedOriginal')) {
-            if (!winList[i].decorated && winList[i]._maximusDecoratedOriginal) {
-                onUnmaximise(null, winList[i].get_compositor_private());
-            }
-            delete winList[i]._maximusDecoratedOriginal;
-        }
-    }
+    stopUndecorating();
 
     /* restore old meta force fullscreen pref */
     Meta.prefs_set_force_fullscreen(oldFullscreenPref);
+
+    /* disconnect settings changes */
+    if (settingsChangedID) {
+        settings.disconnect(settingsChangedID);
+    }
 }
 
