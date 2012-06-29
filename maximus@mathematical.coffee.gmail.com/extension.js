@@ -222,7 +222,8 @@ function onMaximise(shellwm, actor) {
         max = win.get_maximized(),
         isBlacklist = settings.get_boolean(Prefs.IS_BLACKLIST_KEY),
         list = settings.get_strv(Prefs.BLACKLIST_KEY),
-        inList = list.length > 0 && list.indexOf(win.get_wm_class()) >= 0;
+        appid = Shell.WindowTracker.get_default().get_window_app(win).get_id(),
+        inList = list.length > 0 && list.indexOf(appid) >= 0;
 
     LOG('onMaximise: ' + win.get_title() + ' [' + win.get_wm_class() + ']');
     /* Don't undecorate if it is in the settings.get_boolean(Prefs.IS_BLACKLIST_KEY) or not in the whitelist */

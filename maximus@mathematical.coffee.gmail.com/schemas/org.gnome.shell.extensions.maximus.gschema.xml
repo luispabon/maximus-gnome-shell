@@ -11,10 +11,10 @@
       <summary>Whether the 'window-list' key describes a blacklist or a whitelist.</summary>
       <description>Whether the 'window-list' key describes a blacklist or a whitelist.</description>
     </key>
-    <key type="as" name="window-list">
+    <key type="as" name="app-list">
       <default>[ ]</default>
       <summary>Blacklist/whitelist</summary>
-      <description>A list of wmclasses to blacklist or whitelist (depending on the 'is-blacklist' key).</description>
+      <description>A list of apps (xxxx.desktop) to blacklist or whitelist (depending on the 'is-blacklist' key).</description>
     </key>
   </schema>
 </schemalist>

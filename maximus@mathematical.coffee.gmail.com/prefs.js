@@ -8,7 +8,7 @@ const GObject = imports.gi.GObject;
 const Gio = imports.gi.Gio;
 const Gtk = imports.gi.Gtk;
 
-const Gettext = imports.gettext.domain('@gettextdomain');
+const Gettext = imports.gettext.domain('gnome-shell-extensions');
 const _ = Gettext.gettext;
 
 const ExtensionUtils = imports.misc.extensionUtils;
@@ -26,34 +26,20 @@ LOG = function (msg) {
     log(msg);
 }
 /*
- * A Gtk.ListStore with the conveniences of binding one of the columns to
- * a GSettings.
+ * A Gtk.ListStore with the convenience of binding one of the columns to
+ * a GSettings strv column.
  *
  * Modified from git.gnome.org/gnome-shell-extensions auto-move-windows prefs.js
  *
- * columnInfo: an OBJECT with keys being the column names and values being
- *  another object with keys 'index' (column's index) and 'type' (column's type).
- *  One column may additionally have the flag '.keyvalue = true', marking it as
- *  the column corresponding to the settings. 
- * settings: the GSettings instance to tie to the ListModel
- * key: the key to be updated when the ListStore is updated
- * params: params to Gtk.ListStore.
+ * You must modifier to your own use. See '@@' for places to start editing.
  *
- * Example: a ListModel with an icon and name, and the name column will
- *          correspond to the key 'NAME_KEY' in the settings:
- *  new ListModel(
- *      {
- *          ICON : { index: 0, type: Gio.Icon },
- *          NAME : { index: 1, type: GObject.TYPE_STRING, keyvalue: true }
- *      },
- *      settings,
- *      NAME_KEY
- *  );
+ * In particular, 'key' is the strv gsettings key, and 'keyColumnIndex' is the
+ * column index we will get the values for this key from.
  *
- * When you add to/delete from the store (via .set), call store.lock(). 
- * If this returns true then the store has been successfully locked (against 
+ * When you add to/delete from the store (via .set), call store.lock().
+ * If this returns true then the store has been successfully locked (against
  * further changes occuring whilst you make your changes).
- * If it returns 'false' the store was previously locked and you should not 
+ * If it returns 'false' the store was previously locked and you should not
  * make your changes.
  * When you're done, call store.unlock() to open it up again.
  */
@@ -62,22 +48,18 @@ const ListModel = new GObject.Class({
     GTypeName: 'ListModel',
     Expands: Gtk.ListStore,
 
-    _init: function (columnInfo, settings, key, params) {
+    Columns: {
+        APPID: 0,
+        ICON: 1,
+        DISPLAY_NAME: 2
+    },
+
+    _init: function (settings, key, keyColumnIndex, params) {
         this.parent(params);
         this._settings = settings;
-        this._listKey = key;
-        let columnTypes = [];
-        for (let columnName in columnInfo) {
-            if (columnInfo.hasOwnProperty(columnName)) {
-                let col = columnInfo[columnName];
-                this.Columns[columnName] = col.index;
-                columnTypes.push(col.type);
-                if (col.keyvalue) {
-                    this._LABEL_COLUMN_INDEX = col.index;
-                }
-            }
-        }
-        this.set_column_types(columnTypes);
+        this._strvKey = key;
+        this.set_column_types( /* @@ add types here */ );
+        this._keyColumnIndex = keyColumnIndex;
         this._preventChanges = false; // a lock.
 
         this._reloadFromSettings();
@@ -85,7 +67,6 @@ const ListModel = new GObject.Class({
         this.connect('row-changed', Lang.bind(this, this._onRowChanged));
         this.connect('row-inserted', Lang.bind(this, this._onRowInserted));
         this.connect('row-deleted', Lang.bind(this, this._onRowDeleted));
-
     },
 
     /* attempt to lock the store, returning TRUE if we succeeded and FALSE
@@ -108,19 +89,27 @@ const ListModel = new GObject.Class({
     is_locked: function () {
         return this._preventChanges;
     },
-    
+
     _reloadFromSettings: function () {
         if (this.lock()) {
-            let newNames = this._settings.get_strv(this._listKey);
-            let i = 0;
+            let newNames = this._settings.get_strv(this._strvKey);
             let [ok, iter] = this.get_iter_first();
             while (ok) {
                 ok = this.remove(iter);
             }
 
-            for ( ; i < newNames.length; i++) {
+            for (let i = 0; i < newNames.length; i++) {
+                let id = newNames[i],
+                    appInfo = Gio.DesktopAppInfo.new(id);
+                if (!appInfo) {
+                    continue;
+                }
                 iter = this.append();
-                this.set(iter, [this._LABEL_COLUMN_INDEX], [newNames[i]]);
+                this.set(
+                    iter,
+                    [this.Columns.APPID, this.Columns.ICON, this.Columns.DISPLAY_NAME],
+                    [id, appInfo.get_icon(), appInfo.get_display_name()]
+                );
             }
             this.unlock();
         }
@@ -130,15 +119,12 @@ const ListModel = new GObject.Class({
         if (this.lock()) {
             LOG('changing row');
             let index = path.get_indices()[0],
-                names = this._settings.get_strv(this._listKey);
-            if (index >= names.length) {
-                // fill with blanks (????)
-                for (let i = names.length; i <= index; i++) {
-                    names[i] = '';
-                }
-            }
+                names = this._settings.get_strv(this._strvKey);
+            // skip blanks, append to end:
+            index = Math.min(index, names.length);
+            names[index] = this.get_value(iter, this._keyColumnIndex);
 
-            this._settings.set_strv(this._listKey, names);
+            this._settings.set_strv(this._strvKey, names);
             this.unlock();
         } else {
             LOG('tried to change row but it was locked');
@@ -149,11 +135,11 @@ const ListModel = new GObject.Class({
         if (this.lock()) {
             LOG('inserting row');
             let index = path.get_indices()[0];
-            let names = this._settings.get_strv(this._listKey);
-            let label = this.get_value(iter, this._LABEL_COLUMN_INDEX) || '';
+            let names = this._settings.get_strv(this._strvKey);
+            let label = this.get_value(iter, this._keyColumnIndex) || '';
             names.splice(index, 0, label);
 
-            this._settings.set_strv(this._listKey, names);
+            this._settings.set_strv(this._strvKey, names);
             this.unlock();
         } else {
             LOG('tried to insert row but it was locked');
@@ -164,7 +150,7 @@ const ListModel = new GObject.Class({
         if (this.lock()) {
             LOG('deleting row');
             let index = path.get_indices()[0];
-            let names = this._settings.get_strv(this._listKey);
+            let names = this._settings.get_strv(this._strvKey);
 
             if (index >= names.length) {
                 return;
@@ -177,15 +163,14 @@ const ListModel = new GObject.Class({
                 names.pop();
             }
 
-            this._settings.set_strv(this._listKey, names);
+            this._settings.set_strv(this._strvKey, names);
 
             this.unlock();
         } else {
             LOG('tried to delete row but it was locked');
         }
-    },
+    }
 });
-
 
 const MaximusPrefsWidget = new GObject.Class({
     Name: 'Maximus.Prefs.Widget',
@@ -208,24 +193,18 @@ const MaximusPrefsWidget = new GObject.Class({
         /* A TreeView to display the app list. See the extra-panels,
          * workspace-navigator and auto-move-windows extensions for examples.
          */
-        this._store = new ListModel(
-            {
-                ICON:         { index: 0, type: Gio.Icon },
-                DISPLAY_NAME: { index: 1, type: GObject.TYPE_STRING, keyvalue: true }
-            },
-            this._settings,
-            BLACKLIST_KEY
-        );
+        this._store = new ListModel(this._settings, BLACKLIST_KEY,
+            ListModel.Columns.APPID);
         this._treeView = new Gtk.TreeView({
             model: this._store,
             hexpand: true,
             vexpand: true
         });
         this._treeView.get_selection().set_mode(Gtk.SelectionMode.SINGLE);
-        // make the single app column composed of icon + string
+        // we will only display the app's display name + icon.
         let appColumn = new Gtk.TreeViewColumn({
             expand: true,
-            sort_column_id: Columns.DISPLAY_NAME,
+            sort_column_id: this._store.Columns.DISPLAY_NAME,
             title: _("Application")
         }),
             iconRender = new Gtk.CellRenderPixbuf(),
@@ -270,9 +249,12 @@ const MaximusPrefsWidget = new GObject.Class({
                 }
                 /* add it */
                 let iter = this._store.append();
-                this._store.set(iter,
-                    [this._store.Columns.ICON, this._store.Columns.DISPLAY_NAME],
-                    [appInfo.get_icon(), appInfo.get_display_name()]);
+                this._store.set(
+                    iter,
+                    [this._store.Columns.APPID, this._store.Columns.ICON,
+                     this._store.Columns.DISPLAY_NAME],
+                    [appInfo.get_id(), appInfo.get_icon(), appInfo.get_display_name()]
+                );
                 dialog.destroy();
             }));
             dialog.show_all();
