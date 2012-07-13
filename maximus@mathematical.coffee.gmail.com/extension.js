@@ -170,6 +170,45 @@ function decorate(win) {
     LOG(cmd.join(' '));
     Util.spawn(cmd);
 }
+/* setHideTitleBar: tells the window manager to hide the titlebar on
+ * maximised windows (GNOME 3.4+).
+ *
+ * Does this by setting the _GTK_HIDE_TITLEBAR_WHEN_MAXIMIZED hint - means
+ * I can do it once and forget about it, rather than tracking maximize/unmaximize
+ * events.
+ */
+function setHideTitlebar(win, hide, stopAdding) {
+    let id = guessWindowXID(win);
+
+    /* Newly-created windows are added to the workspace before
+     * the compositor knows about them: get_compositor_private() is null.
+     * Additionally things like .get_maximized() aren't properly done yet.
+     * (see workspace.js _doAddWindow)
+     */
+    if (!id && !win.get_compositor_private() && !stopAdding) {
+        Mainloop.idle_add(function () {
+            setHideTitlebar(null, win, true); // only try once more.
+            return false; // define as one-time event
+        });
+        return;
+    }
+
+    /* Undecorate with xprop. Use _GTK_HIDE_TITLEBAR_WHEN_MAXIMIZED.
+     * See (eg) mutter/src/window-props.c 
+     */
+    let cmd = ['xprop', '-id', id,
+           '-f', '_GTK_HIDE_TITLEBAR_WHEN_MAXIMIZED', '32c',
+           '-set', '_GTK_HIDE_TITLEBAR_WHEN_MAXIMIZED',
+           (hide ? '0x1' : '0x0')];
+
+    // fallback: if couldn't get id for some reason, use the window's name
+    if (!id) {
+        cmd[1] = '-name';
+        cmd[2] = win.get_title();
+    }
+
+    Util.spawn(cmd);
+}
 
 /* NOTE: we prefer to use the window's XID but this is not stored
  * anywhere but in the window's description being [XID (%10s window title)].
