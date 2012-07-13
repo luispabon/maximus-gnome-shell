@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <schemalist gettext-domain="gnome-shell-extensions">
-  <schema path="org/gnome/shell/extensions/maximus/" id="org.gnome.shell.extensions.maximus">
+    <schema path="/org/gnome/shell/extensions/maximus/" id="org.gnome.shell.extensions.maximus">
     <key type="b" name="undecorate-half-maximized">
       <default>false</default>
       <summary>Whether to undecorate half-maximized windows.</summary>

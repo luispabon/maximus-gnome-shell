@@ -71,26 +71,25 @@
 const GLib = imports.gi.GLib;
 const Mainloop = imports.mainloop;
 const Meta = imports.gi.Meta;
-const St = imports.gi.St;
+const Shell = imports.gi.Shell;
 const Util = imports.misc.util;
-
-const Main = imports.ui.main;
-const ExtensionUtils = imports.misc.extensionUtils;
 
 const Gettext = imports.gettext.domain('gnome-shell-extensions');
 const _ = Gettext.gettext;
 
+const Main = imports.ui.main;
+
+const ExtensionUtils = imports.misc.extensionUtils;
 const Me = ExtensionUtils.getCurrentExtension();
 const Convenience = Me.imports.convenience;
 const Prefs = Me.imports.prefs;
 
 
-let maxID = null;
-let minID = null;
-let changeWorkspaceID = null;
+let maxID = null, minID = null, settingsChangedID = null, changeWorkspaceID = null;
 let workspaces = [];
 let oldFullscreenPref = null;
 let settings = null;
+let APP_LIST, IS_BLACKLIST;
 
 function LOG(message) {
     log(message);
@@ -220,19 +219,19 @@ function guessWindowXID(win) {
 function onMaximise(shellwm, actor) {
     let win = actor.get_meta_window(),
         max = win.get_maximized(),
-        isBlacklist = settings.get_boolean(Prefs.IS_BLACKLIST_KEY),
-        list = settings.get_strv(Prefs.BLACKLIST_KEY),
-        appid = Shell.WindowTracker.get_default().get_window_app(win).get_id(),
-        inList = list.length > 0 && list.indexOf(appid) >= 0;
+        app = Shell.WindowTracker.get_default().get_window_app(win),
+        appid = (app ? app.get_id() : -1),
+        inList = APP_LIST.length > 0 && APP_LIST.indexOf(appid) >= 0;
 
     LOG('onMaximise: ' + win.get_title() + ' [' + win.get_wm_class() + ']');
-    /* Don't undecorate if it is in the settings.get_boolean(Prefs.IS_BLACKLIST_KEY) or not in the whitelist */
-    if ((isBlacklist && inList) || (!isBlacklist && !inList)) {
+    /* Don't undecorate if it is in the blacklist or not in the whitelist */
+    if ((IS_BLACKLIST && inList) || (!IS_BLACKLIST && !inList)) {
         return;
     }
 
     // do nothing if maximus isn't managing decorations for this window
-    if (!win._maximusDecoratedOriginal) {
+    // (can force if it's in the whitelist)
+    if (!win._maximusDecoratedOriginal && (IS_BLACKLIST || !inList)) {
         return;
     }
 
@@ -249,10 +248,16 @@ function onMaximise(shellwm, actor) {
 }
 
 function onUnmaximise(shellwm, actor) {
-    let win = actor.meta_window;
+    let win = actor.meta_window,
+        app = Shell.WindowTracker.get_default().get_window_app(win),
+        appid = (app ? app.get_id() : -1),
+        inList = APP_LIST.length > 0 && APP_LIST.indexOf(appid) >= 0;
     LOG('onUnmaximise: ' + win.get_title());
-    /* don't decorate if it's not meant to be decorated (like chrome with no 'use system title bars') */
-    if (!win._maximusDecoratedOriginal) {
+    /* don't decorate if it's not meant to be decorated
+     * (like chrome with no 'use system title bars')
+     * (but if we forced it via the blacklist/whitelist then do it)
+     */
+    if (!win._maximusDecoratedOriginal && (IS_BLACKLIST || !inList)) {
         return;
     }
     decorate(win);
@@ -295,11 +300,6 @@ function onChangeNWorkspaces() {
         workspaces.push(ws);
         ws._MaximusWindowAddedId = ws.connect('window-added', onWindowAdded);
     }
-}
-
-function init() {
-    Convenience.initTranslations();
-    settings = convenience.getSettings();
 }
 
 /* start listening to events and affect already-existing windows. */
@@ -358,7 +358,15 @@ function stopUndecorating () {
     }
 }
 
+function init() {
+    Convenience.initTranslations();
+    settings = Convenience.getSettings();
+}
+
 function enable() {
+    IS_BLACKLIST = settings.get_boolean(Prefs.IS_BLACKLIST_KEY);
+    APP_LIST = settings.get_strv(Prefs.BLACKLIST_KEY);
+
     startUndecorating();
 
     /* this is needed to prevent Metacity from interpreting an attempted drag
@@ -379,6 +387,10 @@ function enable() {
         // redecorate every window and undecorate again according to the
         // new settings.
         stopUndecorating(); 
+
+        IS_BLACKLIST = settings.get_boolean(Prefs.IS_BLACKLIST_KEY);
+        APP_LIST = settings.get_strv(Prefs.BLACKLIST_KEY);
+
         startUndecorating();
     });
 }
@@ -394,4 +406,3 @@ function disable() {
         settings.disconnect(settingsChangedID);
     }
 }
-

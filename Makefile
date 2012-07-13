@@ -9,15 +9,14 @@ clean:
 	rm -f $(UUID).zip $(UUID)/schemas/gschemas.compiled
 
 # compile the schemas
-all:
-	@if [ -d $(EXTENSION)$(EXTENSION_BASE)/schemas ]; then \
-		glib-compile-schemas $(EXTENSION)$(EXTENSION_BASE)/schemas; \
+all: clean
+	@if [ -d $(UUID)/schemas ]; then \
+		glib-compile-schemas $(UUID)/schemas; \
 	fi
 
 zip: all
 	zip -rq $(UUID).zip $(FILES:%=$(UUID)/%)
 
 dev-zip: all
-	zip -rqj $(UUID).zip $(FILES:%=$(UUID)/%)
 	(cd $(UUID); \
 		zip -rq ../$(UUID).zip $(FILES))
