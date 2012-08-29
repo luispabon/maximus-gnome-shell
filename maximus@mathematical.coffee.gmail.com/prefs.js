@@ -15,16 +15,18 @@ const _ = Gettext.gettext;
 const ExtensionUtils = imports.misc.extensionUtils;
 const Me = ExtensionUtils.getCurrentExtension();
 const Convenience = Me.imports.convenience;
+const AppChooserDialog = Me.imports.appChooserDialog;
 
-const UNDECORATE_HALF_MAXIMIZED_KEY='undecorate-half-maximized';
-const IS_BLACKLIST_KEY='is-blacklist';
-const BLACKLIST_KEY='app-list';
+const UNDECORATE_HALF_MAXIMIZED_KEY = 'undecorate-half-maximized';
+const IS_BLACKLIST_KEY = 'is-blacklist';
+const BLACKLIST_KEY = 'app-list';
+
 function init() {
     Convenience.initTranslations();
 }
 
 function LOG(msg) {
-    log(msg);
+    //log(msg);
 }
 /*
  * A Gtk.ListStore with the convenience of binding one of the columns to
@@ -35,22 +37,25 @@ function LOG(msg) {
  * In particular, 'key' is the strv gsettings key, and 'keyColumnIndex' is the
  * column index we will get the values for this key from.
  */
+const Columns = {
+    APPID: 0,
+    ICON: 1,
+    DISPLAY_NAME: 2
+};
 const ListModel = new GObject.Class({
     Name: 'Maximus.MaximusListModel',
     GTypeName: 'MaximusListModel',
     Extends: Gtk.ListStore,
 
-    Columns: {
-        APPID: 0,
-        ICON: 1,
-        DISPLAY_NAME: 2
-    },
+    //Columns: Columns,
 
     _init: function (settings, key, keyColumnIndex, params) {
         this.parent(params);
         this._settings = settings;
         this._strvKey = key;
-        this.set_column_types([GObject.TYPE_STRING, Gio.Icon, GObject.TYPE_STRING]);
+        this.set_column_types([
+            GObject.TYPE_STRING, Gio.Icon, GObject.TYPE_STRING
+        ]);
         this._keyColumnIndex = keyColumnIndex;
         this._preventChanges = false; // a lock.
 
@@ -100,7 +105,7 @@ const ListModel = new GObject.Class({
                 iter = this.append();
                 this.set(
                     iter,
-                    [this.Columns.APPID, this.Columns.ICON, this.Columns.DISPLAY_NAME],
+                    [Columns.APPID, Columns.ICON, Columns.DISPLAY_NAME],
                     [id, appInfo.get_icon(), appInfo.get_display_name()]
                 );
             }
@@ -115,9 +120,12 @@ const ListModel = new GObject.Class({
             LOG('changing row');
             let index = path.get_indices()[0],
                 names = this._settings.get_strv(this._strvKey);
-            // skip blanks, append to end:
+            // skip blanks
+            names = names.filter(function (str) { return str.trim().length; });
+            // append to end:
             index = Math.min(index, names.length);
             names[index] = this.get_value(iter, this._keyColumnIndex);
+            LOG('names: ' + names);
 
             this._settings.set_strv(this._strvKey, names);
             this.unlock();
@@ -126,7 +134,7 @@ const ListModel = new GObject.Class({
         }
     },
 
-    _onRowInserted: function(self, path, iter) {
+    _onRowInserted: function (self, path, iter) {
         if (this.lock()) {
             LOG('inserting row');
             let index = path.get_indices()[0];
@@ -141,7 +149,7 @@ const ListModel = new GObject.Class({
         }
     },
 
-    _onRowDeleted: function(self, path) {
+    _onRowDeleted: function (self, path) {
         if (this.lock()) {
             LOG('deleting row');
             let index = path.get_indices()[0];
@@ -154,7 +162,7 @@ const ListModel = new GObject.Class({
             names.splice(index, 1);
 
             // compact the array
-            for (let i = names.length -1; i >= 0 && !names[i]; i++) {
+            for (let i = names.length - 1; i >= 0 && !names[i]; i++) {
                 names.pop();
             }
 
@@ -172,7 +180,7 @@ const MaximusPrefsWidget = new GObject.Class({
     GTypeName: 'MaximusPrefsWidget',
     Extends: Gtk.Grid,
 
-    _init: function(params) {
+    _init: function (params) {
         this.parent(params);
         this.margin = this.row_spacing = this.column_spacing = 10;
         this._rownum = 0;
@@ -189,7 +197,7 @@ const MaximusPrefsWidget = new GObject.Class({
          * workspace-navigator and auto-move-windows extensions for examples.
          */
         this._store = new ListModel(this._settings, BLACKLIST_KEY,
-            ListModel.prototype.Columns.APPID);
+            Columns.APPID);
         this._treeView = new Gtk.TreeView({
             model: this._store,
             hexpand: true,
@@ -199,65 +207,62 @@ const MaximusPrefsWidget = new GObject.Class({
         // we will only display the app's display name + icon.
         let appColumn = new Gtk.TreeViewColumn({
             expand: true,
-            sort_column_id: this._store.Columns.DISPLAY_NAME,
+            sort_column_id: Columns.DISPLAY_NAME,
             title: _("Application blacklist/whitelist")
         }),
             iconRenderer = new Gtk.CellRendererPixbuf(),
             textRenderer = new Gtk.CellRendererText({editable: false});
         appColumn.pack_start(iconRenderer, false);
         appColumn.pack_start(textRenderer, true);
-        appColumn.add_attribute(iconRenderer, 'gicon', this._store.Columns.ICON);
-        appColumn.add_attribute(textRenderer, 'text', this._store.Columns.DISPLAY_NAME);
+        appColumn.add_attribute(iconRenderer, 'gicon', Columns.ICON);
+        appColumn.add_attribute(textRenderer, 'text', Columns.DISPLAY_NAME);
         this._treeView.append_column(appColumn);
 
         this.addItem(this._treeView);
 
         /* TOOLBAR with 'add' and 'delete' */
-        let toolbar = new Gtk.Toolbar();                                        
-        toolbar.get_style_context().add_class(Gtk.STYLE_CLASS_INLINE_TOOLBAR);  
-     
+        let toolbar = new Gtk.Toolbar();
+        toolbar.get_style_context().add_class(Gtk.STYLE_CLASS_INLINE_TOOLBAR);
+
         let button = new Gtk.ToolButton({
             stock_id: Gtk.STOCK_ADD,
             label: _("Add")
-        });        
-        button.connect('clicked', Lang.bind(this, this._newClicked));        
-        toolbar.add(button);                                                 
-                                                                                
+        });
+        button.connect('clicked', Lang.bind(this, this._newClicked));
+        toolbar.add(button);
+
         button = new Gtk.ToolButton({
             stock_id: Gtk.STOCK_REMOVE,
             label: _("Remove")
-        });     
-        button.connect('clicked', Lang.bind(this, this._delClicked));        
+        });
+        button.connect('clicked', Lang.bind(this, this._delClicked));
         toolbar.add(button);
 
         button = new Gtk.ToolButton({
             stock_id: Gtk.STOCK_CLEAR,
             label: _("Clear all"),
             is_important: true // show its label
-        });     
-        button.connect('clicked', Lang.bind(this, this._clearClicked));        
+        });
+        button.connect('clicked', Lang.bind(this, this._clearClicked));
         toolbar.add(button);
-                                                                                
+
         this.addItem(toolbar);
-        // TODO: alignment is wrong.
-        // TODO: 'clear all'
     },
 
     /* *** toolbar stuff *** */
-    _newClicked: function() {                                                   
+    _newClicked: function () {
         /* bring up a dialogue for them to set windows */
-        let dialog = new Gtk.AppChooserDialog(this.get_toplevel(),
-                Gtk.DialogFlags.MODAL | Gtk.DialogFlags.DESTROY_WITH_PARENT),
+        let dialog = new AppChooserDialog.AppChooserDialog(this.get_toplevel()),
             widget = dialog.get_widget();
-        dialog.set_heading(_("Select an app to blacklist/whitelist"));
-        widget.set_show_all(true);
+        dialog.set_heading(_("Select an application to blacklist/whitelist"));
 
         function getAppFromDialog(dialog, id) {
             if (id !== Gtk.ResponseType.OK) {
                 dialog.destroy();
                 return;
             }
-            let appInfo = widget.get_app_info();
+            // NOTE: the GDesktopAppInfo returned has a NULL .get_id() !
+            let [appId, appInfo] = widget.get_app_info();
             if (!appInfo) {
                 dialog.destroy();
                 return;
@@ -266,20 +271,20 @@ const MaximusPrefsWidget = new GObject.Class({
             let iter = this._store.append();
             this._store.set(
                 iter,
-                [this._store.Columns.APPID, this._store.Columns.ICON,
-                 this._store.Columns.DISPLAY_NAME],
-                [appInfo.get_id(), appInfo.get_icon(), appInfo.get_display_name()]
+                [Columns.APPID, Columns.ICON,
+                 Columns.DISPLAY_NAME],
+                [appId, appInfo.get_icon(),
+                 appInfo.get_display_name()]
             );
             dialog.destroy();
         }
         dialog.connect('response', Lang.bind(this, getAppFromDialog));
-        widget.connect('application-activated', Lang.bind(this, getAppFromDialog));
         dialog.show_all();
     },
-                                                                                
-    _delClicked: function() {                                                   
-        let [any, model, iter] = this._treeView.get_selection().get_selected(); 
-                                                                                
+
+    _delClicked: function () {
+        let [any, model, iter] = this._treeView.get_selection().get_selected();
+
         if (any) {
             this._store.remove(iter);
         }

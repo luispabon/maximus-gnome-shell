@@ -12,7 +12,7 @@
       <description>Whether the 'window-list' key describes a blacklist or a whitelist.</description>
     </key>
     <key type="as" name="app-list">
-      <default>[ ]</default>
+      <default>[]</default>
       <summary>Blacklist/whitelist</summary>
       <description>A list of apps (xxxx.desktop) to blacklist or whitelist (depending on the 'is-blacklist' key).</description>
     </key>
