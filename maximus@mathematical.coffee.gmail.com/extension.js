@@ -1,3 +1,5 @@
+/*global global, log */ // <-- jshint
+/*jshint unused:true */
 /*
  * Maximus v1.3
  * Amy Chan <mathematical.coffee@gmail.com>
@@ -89,10 +91,11 @@ let maxID = null, minID = null, settingsChangedID = null, changeWorkspaceID = nu
 let workspaces = [];
 let oldFullscreenPref = null;
 let settings = null;
+let onetime = 0;
 let APP_LIST, IS_BLACKLIST;
 
 function LOG(message) {
-    log(message);
+    //log(message);
 }
 /* undecorates a window.
  * If I use set_decorations(0) from within the GNOME shell extension (i.e.
@@ -182,7 +185,7 @@ function guessWindowXID(win) {
         id = win.get_description().match(/0x[0-9a-f]+/);
         if (id) {
             id = id[0];
-            return id ;
+            return id;
         }
     } catch (err) {
     }
@@ -230,13 +233,14 @@ function onMaximise(shellwm, actor) {
     }
 
     // do nothing if maximus isn't managing decorations for this window
+    // or we are not maximized
     // (can force if it's in the whitelist)
-    if (!win._maximusDecoratedOriginal && (IS_BLACKLIST || !inList)) {
+    if (!max || (!win._maximusDecoratedOriginal && (IS_BLACKLIST || !inList))) {
         return;
     }
 
     // if this is a partial maximization
-    if( max != (Meta.MaximizeFlags.HORIZONTAL | Meta.MaximizeFlags.VERTICAL)) {
+    if (max !== (Meta.MaximizeFlags.HORIZONTAL | Meta.MaximizeFlags.VERTICAL)) {
         // if we want decorations for partial maximization
         if (!settings.get_boolean(Prefs.UNDECORATE_HALF_MAXIMIZED_KEY)) {
             decorate(win);
@@ -271,7 +275,7 @@ function onWindowAdded(ws, win) {
      * (see workspace.js _doAddWindow)
      */
     win._maximusDecoratedOriginal = win.decorated !== false || false;
-    LOG('onWindowAdded: ' + win.get_title());
+    LOG('onWindowAdded: ' + win.get_title() + ' decorated? ' + win._maximusDecoratedOriginal);
     if (!win.get_compositor_private()) {
         Mainloop.idle_add(function () {
             onMaximise(null, win.get_compositor_private());
@@ -303,7 +307,7 @@ function onChangeNWorkspaces() {
 }
 
 /* start listening to events and affect already-existing windows. */
-function startUndecorating () {
+function startUndecorating() {
     /* Connect events */
     maxID = global.window_manager.connect('maximize', onMaximise);
     minID = global.window_manager.connect('unmaximize', onUnmaximise);
@@ -318,7 +322,7 @@ function startUndecorating () {
      *  fired for every currently-existing window, and then
      *  these windows will have onMaximise called twice on them.
      */
-    Mainloop.idle_add(function () {
+    onetime = Mainloop.idle_add(function () {
         let winList = global.get_window_actors().map(function (w) { return w.meta_window; }),
             i       = winList.length;
         while (i--) {
@@ -333,7 +337,7 @@ function startUndecorating () {
 
 /* stop listening to events, restore all windows back to their original
  * decoration state. */
-function stopUndecorating () {
+function stopUndecorating() {
     global.window_manager.disconnect(maxID);
     global.window_manager.disconnect(minID);
     global.window_manager.disconnect(changeWorkspaceID);
@@ -346,6 +350,11 @@ function stopUndecorating () {
     }
     workspaces = [];
 
+    /* redecorate undecorated windows we screwed with */
+    if (onetime) {
+        Mainloop.source_remove(onetime);
+        onetime = 0;
+    }
     let winList = global.get_window_actors().map(function (w) { return w.meta_window; }),
         i       = winList.length;
     while (i--) {
@@ -359,7 +368,6 @@ function stopUndecorating () {
 }
 
 function init() {
-    Convenience.initTranslations();
     settings = Convenience.getSettings();
 }
 
@@ -386,7 +394,7 @@ function enable() {
     settingsChangedID = settings.connect('changed', function (settings, key) {
         // redecorate every window and undecorate again according to the
         // new settings.
-        stopUndecorating(); 
+        stopUndecorating();
 
         IS_BLACKLIST = settings.get_boolean(Prefs.IS_BLACKLIST_KEY);
         APP_LIST = settings.get_strv(Prefs.BLACKLIST_KEY);

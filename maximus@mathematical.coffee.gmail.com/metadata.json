@@ -3,12 +3,11 @@
  "uuid": "maximus@mathematical.coffee.gmail.com",
  "settings-schema": "org.gnome.shell.extensions.maximus",
  "name": "Maximus",
- "gettext-domain": "gnome-shell-extensions",
  "description": "Undecorate maximized windows, like Ubuntu's old 'Maximus' package. See readme at extension homepage.",
  "shell-version": [ 
      "3.4"
  ],
  "url": "https://bitbucket.org/mathematicalcoffee/maximus-gnome-shell-extension",
- "version": 4,
- "dev-version": "1.3_gnome3.4"
+ "version": 5,
+ "dev-version": "2.0_gnome3.4"
 }
