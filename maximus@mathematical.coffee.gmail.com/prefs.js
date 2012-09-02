@@ -9,7 +9,7 @@ const Gio = imports.gi.Gio;
 const Gtk = imports.gi.Gtk;
 const Lang = imports.lang;
 
-const Gettext = imports.gettext.domain('gnome-shell-extensions');
+const Gettext = imports.gettext.domain('maximus');
 const _ = Gettext.gettext;
 
 const ExtensionUtils = imports.misc.extensionUtils;
