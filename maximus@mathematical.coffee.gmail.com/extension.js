@@ -76,9 +76,6 @@ const Meta = imports.gi.Meta;
 const Shell = imports.gi.Shell;
 const Util = imports.misc.util;
 
-const Gettext = imports.gettext.domain('gnome-shell-extensions');
-const _ = Gettext.gettext;
-
 const Main = imports.ui.main;
 
 const ExtensionUtils = imports.misc.extensionUtils;
@@ -214,6 +211,8 @@ function guessWindowXID(win) {
             }
         }
     }
+    // debugging for when people find bugs..
+    log("[maximus]: Could not find XID for window with title %s".format(win.title));
     return null;
 }
 
@@ -269,6 +268,13 @@ function onUnmaximise(shellwm, actor) {
 }
 
 function onWindowAdded(ws, win) {
+    // if the window is simply switching workspaces, it will trigger a
+    // window-added signal. We don't want to reprocess it then because we already
+    // have.
+    if (win._maximusDecoratedOriginal !== undefined) {
+        return;
+    }
+    
     /* Newly-created windows are added to the workspace before
      * the compositor knows about them: get_compositor_private() is null.
      * Additionally things like .get_maximized() aren't properly done yet.
