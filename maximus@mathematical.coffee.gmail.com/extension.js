@@ -92,7 +92,7 @@ let onetime = 0;
 let APP_LIST, IS_BLACKLIST;
 
 function LOG(message) {
-    //log(message);
+    log(message);
 }
 /* undecorates a window.
  * If I use set_decorations(0) from within the GNOME shell extension (i.e.
