@@ -219,6 +219,9 @@ function guessWindowXID(win) {
 /**** Callbacks ****/
 /* onMaximise: called when a window is maximised and removes decorations. */
 function onMaximise(shellwm, actor) {
+    if (!actor) {
+        return;
+    }
     let win = actor.get_meta_window(),
         max = win.get_maximized(),
         app = Shell.WindowTracker.get_default().get_window_app(win),
@@ -251,6 +254,10 @@ function onMaximise(shellwm, actor) {
 }
 
 function onUnmaximise(shellwm, actor) {
+    if (!actor) {
+        return;
+    }
+
     let win = actor.meta_window,
         app = Shell.WindowTracker.get_default().get_window_app(win),
         appid = (app ? app.get_id() : -1),
