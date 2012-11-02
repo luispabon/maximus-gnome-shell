@@ -1,7 +1,7 @@
 /*global global, log */ // <-- jshint
 /*jshint unused:true */
 /*
- * Maximus v1.3
+ * Maximus v2.1
  * Amy Chan <mathematical.coffee@gmail.com>
  * Other contributors:
  * - Michael Kirk
