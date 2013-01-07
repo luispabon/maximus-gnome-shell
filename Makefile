@@ -1,19 +1,22 @@
 #=============================================================================
-EXTENSION=maximus
-EXTENSION_BASE=@mathematical.coffee.gmail.com
-FILES=metadata.json extension.js stylesheet.css
+UUID=maximus@mathematical.coffee.gmail.com
+FILES=metadata.json *.js stylesheet.css schemas
 #=============================================================================
 default_target: all
 .PHONY: clean all zip
 
 clean:
-	rm -f $(EXTENSION)$(EXTENSION_BASE).zip
+	rm -f $(UUID).zip $(UUID)/schemas/gschemas.compiled
 
-# nothing in this target, just make the zip
-all:
+# compile the schemas
+all: clean
+	@if [ -d $(UUID)/schemas ]; then \
+		glib-compile-schemas $(UUID)/schemas; \
+	fi
 
-zip: clean all
-	zip -rq $(EXTENSION)$(EXTENSION_BASE).zip $(FILES:%=$(EXTENSION)$(EXTENSION_BASE)/%)
+zip: all
+	zip -rq $(UUID).zip $(FILES:%=$(UUID)/%)
 
-dev-zip: clean all
-	zip -rqj $(EXTENSION)$(EXTENSION_BASE).zip $(FILES:%=$(EXTENSION)$(EXTENSION_BASE)/%)
+dev-zip: all
+	(cd $(UUID); \
+		zip -rq ../$(UUID).zip $(FILES))

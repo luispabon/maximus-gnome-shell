@@ -26,6 +26,8 @@ Project webpage: [at  bitbucket](https://bitbucket.org/mathematicalcoffee/maximu
 ---
 # Configuration
 
+On GNOME 3.4+: use the prefs widget. On GNOME 3.2, modify `extension.js`:
+
 ## Half-maximised windows
 By default, only fully-maximised windows are undecorated.
 If you also want to undecorate half-maximised windows, edit the line in `extension.js` to change this line:
@@ -47,13 +49,13 @@ To set whether the list is a blacklist or whitelist, modify this line at the top
     /*** Whitelists/blacklists ***/
     const BLACKLIST = true; // if it's a white list, change this to FALSE
 
-To add apps to the blacklist or whitelist, add them to the `WMLIST` variable in `extension.js`.
-You have to add the window's window manager class to the list for it to work.
+To add apps to the blacklist or whitelist, add them to the `APP_LIST` variable in `extension.js`.
+You have to add the window's application name (like 'thunderbird.desktop') for it to work.
 
 To see what an application's window manager class is, open up an instance of it.
-Then press `Alt + F2` and type `lg`. Go to the 'Windows' tab and note the `wmclass` of the window in question (press Esc to exit).
+Then press `Alt + F2` and type `lg`. Go to the 'Windows' tab and note the `app` of the window in question (press Esc to exit).
 
-Add this in to `WMLIST`.
+Add this in to `APP_LIST`.
 
 ---
 
@@ -71,6 +73,6 @@ One-click install from [extensions.gnome.org](https://extensions.gnome.org/exten
 # Branch Info (for developers)
 
 * 'Stable' branch works with GNOME 3.2 and GNOME 3.4. No fancy gsettings or UI for setting options (this extension doesn't have options for the moment).
-* 'gnome3.4' branch: an improperly-named branch. This is an attempt to set the `_GDK_HIDE_TITLEBAR_WHEN_MAXIMIZED` window hint instead of using `_MOTIF_WM_HINTS`.
-Works but depends on your window theme (in particular Ubuntu ones do not respect the hint), so abandoned (for now).
-* 'Default' branch - where development happens. It is *not* guaranteed to be stable at *any* commit.
+* 'gnome3.4' branch: GNOME3.4+ with prefs widget.
+* 'default' branch: I plan to make this the gnome3.4+ development branch.
+* 'set_hide_titlebar' bookmark: does the decoration/undecoration by setting the `_GDK_HIDE_TITLEBAR_WHEN_MAXIMIZED` window hint. Compatible with 3.2 to 3.6 (although no prefs widget yet). It seems less bug-prone than the normal branch, but **will not work** with the Unity themes (Ambiance, Radiance) which do not respect the hint. Also, the `undecorateHalfMaximised` option is permanently `true`, no way to fix it.
