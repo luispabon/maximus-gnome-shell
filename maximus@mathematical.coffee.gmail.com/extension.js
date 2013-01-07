@@ -461,18 +461,16 @@ function stopUndecorating() {
             if (USE_SET_HIDE_TITLEBAR) {
                 let win = winList[i];
                 setHideTitlebar(win, false, false, true);
-                if (!settings.get_boolean(Prefs.UNDECORATE_HALF_MAXIMIZED_KEY)) {
-                    if (win._maxHStateId) {
-                        win.disconnect(win._maxHStateId);
-                        delete win._maxHStateId;
-                    }
-                    if (win._maxVStateId) {
-                        win.disconnect(win._maxVStateId);
-                        delete win._maxVStateId;
-                    }
-                    if (win._maximusDecoratedOriginal) {
-                        decorate(win);
-                    }
+                if (win._maxHStateId) {
+                    win.disconnect(win._maxHStateId);
+                    delete win._maxHStateId;
+                }
+                if (win._maxVStateId) {
+                    win.disconnect(win._maxVStateId);
+                    delete win._maxVStateId;
+                }
+                if (win._maximusDecoratedOriginal) {
+                    decorate(win);
                 }
             } else {
                 if (!winList[i].decorated && winList[i]._maximusDecoratedOriginal) {
