@@ -421,6 +421,9 @@ function startUndecorating() {
         let winList = global.get_window_actors().map(function (w) { return w.meta_window; }),
             i       = winList.length;
         while (i--) {
+            if (winList[i].window_type === Meta.WindowType.DESKTOP) {
+                continue;
+            }
             if (USE_SET_HIDE_TITLEBAR) {
                 onWindowAdded(null, winList[i]);
             } else {
@@ -457,6 +460,9 @@ function stopUndecorating() {
     let winList = global.get_window_actors().map(function (w) { return w.meta_window; }),
         i       = winList.length;
     while (i--) {
+        if (winList[i].window_type === Meta.WindowType.DESKTOP) {
+            continue;
+        }
         if (winList[i].hasOwnProperty('_maximusDecoratedOriginal')) {
             if (USE_SET_HIDE_TITLEBAR) {
                 let win = winList[i];
