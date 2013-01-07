@@ -16,5 +16,10 @@
       <summary>Blacklist/whitelist</summary>
       <description>A list of apps (xxxx.desktop) to blacklist or whitelist (depending on the 'is-blacklist' key).</description>
     </key>
+    <key type="b" name="use-set-hide-titlebar">
+      <default>true</default>
+      <summary>Use an alternate method for performing redecorating.</summary>
+      <description>Use an alternate (internal) method for performing redecorating? This seems more stable BUT does not work with some window themes, in particular Unity's Ambiance and Radiance (they don't respect the hide_titlebar_when_maximized property).</description>
+    </key>
   </schema>
 </schemalist>

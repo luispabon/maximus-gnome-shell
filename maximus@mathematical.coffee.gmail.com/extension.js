@@ -1,4 +1,4 @@
-/*global global */
+/*global global, log */ // <-- jshint
 /*jshint maxlen: 150 */
 /*
  * Maximus v2.1
@@ -69,27 +69,6 @@
  *
  */
 
-/*** If you want to undecorate half-maximised windows then change this to true. ***/
-const undecorateHalfMaximised = false;
-
-/*** Whitelists/blacklists ***/
-const IS_BLACKLIST = true; // if it's a white list, change this to FALSE
-
-// apps to blacklist or whitelist. If blacklist, all windows *but* these
-// will be undecorated on maximize. If whitelist, *only* these windows will
-// be undecorated on maximize.
-// You have to add the app name to the list. To see this, do Alt+F2 > Windows >
-// look at 'app'.
-// It is *CASE SENSITIVE*.
-const APP_LIST = [
-    // FOR EXAMPLE to leave terminal & thunderbird windows alone:
-    //'gnome-terminal.desktop',
-    //'thunderbird.desktop',
-    //'firefox.desktop'
-];
-
-const USE_SET_HIDE_TITLEBAR = true;
-
 /*** Code proper, don't edit anything below **/
 const GLib = imports.gi.GLib;
 const Lang = imports.lang;
@@ -100,13 +79,18 @@ const Util = imports.misc.util;
 
 const Main = imports.ui.main;
 
+const ExtensionUtils = imports.misc.extensionUtils;
+const Me = ExtensionUtils.getCurrentExtension();
+const Convenience = Me.imports.convenience;
+const Prefs = Me.imports.prefs;
 
-let maxID = null;
-let minID = null;
-let changeWorkspaceID = null;
+
+let maxID = null, minID = null, settingsChangedID = null, changeWorkspaceID = null;
 let workspaces = [];
-let onetime = null;
 let oldFullscreenPref = null;
+let settings = null;
+let onetime = 0;
+let APP_LIST, IS_BLACKLIST, USE_SET_HIDE_TITLEBAR;
 
 function LOG(message) {
     //log(message);
@@ -233,6 +217,7 @@ function decorate(win) {
     LOG(cmd.join(' '));
     Util.spawn(cmd);
 }
+
 /* setHideTitleBar: tells the window manager to hide the titlebar on
  * maximised windows (GNOME 3.4+).
  *
@@ -314,7 +299,7 @@ function onMaximise(shellwm, actor) {
     // if this is a partial maximization
     if (max !== (Meta.MaximizeFlags.HORIZONTAL | Meta.MaximizeFlags.VERTICAL)) {
         // if we want decorations for partial maximization
-        if (!undecorateHalfMaximised) {
+        if (!settings.get_boolean(Prefs.UNDECORATE_HALF_MAXIMIZED_KEY)) {
             decorate(win);
             return;
         }
@@ -376,7 +361,7 @@ function onWindowAdded(ws, win) {
         setHideTitlebar(win, true);
         // set_hide_titlebar undecorates half maximized, so if we wish not to we
         // will have to manually redo it ourselves
-        if (!undecorateHalfMaximised) {
+        if (!settings.get_boolean(Prefs.UNDECORATE_HALF_MAXIMIZED_KEY)) {
             win._maxHStateId = win.connect('notify::maximized-horizontally', onWindowChangesMaximiseState);
             win._maxVStateId = win.connect('notify::maximized-vertically', onWindowChangesMaximiseState);
         }
@@ -476,7 +461,7 @@ function stopUndecorating() {
             if (USE_SET_HIDE_TITLEBAR) {
                 let win = winList[i];
                 setHideTitlebar(win, false, false, true);
-                if (!undecorateHalfMaximised) {
+                if (!settings.get_boolean(Prefs.UNDECORATE_HALF_MAXIMIZED_KEY)) {
                     if (win._maxHStateId) {
                         win.disconnect(win._maxHStateId);
                         delete win._maxHStateId;
@@ -500,9 +485,17 @@ function stopUndecorating() {
 }
 
 function init() {
+    settings = Convenience.getSettings();
 }
 
 function enable() {
+    IS_BLACKLIST = settings.get_boolean(Prefs.IS_BLACKLIST_KEY);
+    APP_LIST = settings.get_strv(Prefs.BLACKLIST_KEY);
+    USE_SET_HIDE_TITLEBAR = settings.get_boolean(Prefs.USE_SET_HIDE_TITLEBAR_KEY);
+    if (USE_SET_HIDE_TITLEBAR && Meta.prefs_get_theme().match(/^(?:Ambiance|Radiance)$/)) {
+        USE_SET_HIDE_TITLEBAR = false;
+    }
+
     startUndecorating();
 
     /* this is needed to prevent Metacity from interpreting an attempted drag
@@ -517,6 +510,22 @@ function enable() {
      */
     oldFullscreenPref = Meta.prefs_get_force_fullscreen();
     Meta.prefs_set_force_fullscreen(false);
+
+    /* Monitor settings changes */
+    settingsChangedID = settings.connect('changed', function (settings, key) {
+        // redecorate every window and undecorate again according to the
+        // new settings.
+        stopUndecorating();
+
+        IS_BLACKLIST = settings.get_boolean(Prefs.IS_BLACKLIST_KEY);
+        APP_LIST = settings.get_strv(Prefs.BLACKLIST_KEY);
+        USE_SET_HIDE_TITLEBAR = settings.get_boolean(Prefs.USE_SET_HIDE_TITLEBAR_KEY);
+        if (USE_SET_HIDE_TITLEBAR && Meta.prefs_get_theme().match(/^(?:Ambiance|Radiance)$/)) {
+            USE_SET_HIDE_TITLEBAR = false;
+        }
+
+        startUndecorating();
+    });
 }
 
 function disable() {
@@ -524,4 +533,9 @@ function disable() {
 
     /* restore old meta force fullscreen pref */
     Meta.prefs_set_force_fullscreen(oldFullscreenPref);
+
+    /* disconnect settings changes */
+    if (settingsChangedID) {
+        settings.disconnect(settingsChangedID);
+    }
 }
