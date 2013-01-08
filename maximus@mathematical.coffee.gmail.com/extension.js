@@ -1,6 +1,6 @@
 /*global global, log */ // <-- jshint
 /*jshint maxlen: 150 */
-/*
+/* @overview
  * Maximus v2.1
  * Amy Chan <mathematical.coffee@gmail.com>
  * Other contributors:
@@ -26,14 +26,15 @@
  * refresh your memory on your system's keyboard shortcut for unmaximising a window
  * (for me it's Ctrl + Super + Down to unmaximise, Ctrl + Super + Up to maximise).
  *
- * Small idiosyncracies:
+ * ## Small idiosyncracies:
  * Note - these are simple enough for me to implement so if enough people let
  * me know that they want this behaviour, I'll do it.
  *
  * * the original Maximus also maximised all windows on startup.
  *   This doesn't (it was annoying).
  *
- * Help! It didn't work/I found a bug!
+ * ## Help! It didn't work/I found a bug!
+ *
  * 1. Make sure you can *reproduce* the bug reliably.
  * 2. Do 'Ctrl + F2' and 'lg' and see if there are any errors produced by Maximus,
  *    both in the 'Errors' window *and* the 'Extensions' > 'Maximus' > 'Show Errors'
@@ -54,13 +55,12 @@
  * (Brownie points: open a terminal, do `gnome-shell --replace` and reproduce the
  *  bug. Include any errors that pop up in this terminal.)
  *
- *
- * Note:
+ * ## Note:
  * It's actually possible to get the undecorate-on-maximise behaviour without
  * needing this extension. See the link [5] and in particular, the bit on editing
  * your metacity theme metacity-theme-3.xml. ("Method 2: editing the theme").
  *
- * References:
+ * ## References:
  * [1]:https://launchpad.net/maximus
  * [2]:https://extensions.gnome.org/extension/59/status-title-bar/
  * [3]:https://bitbucket.org/mathematicalcoffee/window-options-gnome-shell-extension
@@ -69,7 +69,7 @@
  *
  */
 
-/*** Code proper, don't edit anything below **/
+/* ** Code proper, don't edit anything below ** */
 const GLib = imports.gi.GLib;
 const Lang = imports.lang;
 const Mainloop = imports.mainloop;
@@ -84,6 +84,8 @@ const Me = ExtensionUtils.getCurrentExtension();
 const Convenience = Me.imports.convenience;
 const Prefs = Me.imports.prefs;
 
+// convenience
+Meta.MaximizeFlags.BOTH = (Meta.MaximizeFlags.VERTICAL | Meta.MaximizeFlags.HORIZONTAL);
 
 let maxID = null, minID = null, settingsChangedID = null, changeWorkspaceID = null;
 let workspaces = [];
@@ -96,16 +98,23 @@ function LOG(message) {
     //log(message);
 }
 
-/* NOTE: we prefer to use the window's XID but this is not stored
- * anywhere but in the window's description being [XID (%10s window title)].
- * And I'm not sure I want to rely on that being the case always.
- * (mutter/src/core/window-props.c)
+/** Guesses the X ID of a window.
  *
- * If we use the windows' title, `xprop` grabs the "least-focussed" window
- * (bottom of stack I suppose).
+ * It is often in the window's title, being `"0x%x %10s".format(XID, window.title)`.
+ * (See `mutter/src/core/window-props.c`).
  *
- * Can match winow.get_startup_id() to WM_WINDOW_ROLE(STRING)
- * If they're not equal, then try the XID ?
+ * If we couldn't find it there, we use `win`'s actor, `win.get_compositor_private()`.
+ * The actor's `x-window` property is the X ID of the window *actor*'s frame
+ * (as opposed to the window itself).
+ *
+ * However, the child window of the window actor is the window itself, so by
+ * using `xwininfo -children -id [actor's XID]` we can attempt to deduce the
+ * window's X ID.
+ *
+ * It is not always foolproof, but works good enough for now.
+ *
+ * @param {Meta.Window} win - the window to guess the XID of. You wil get better
+ * success if the window's actor (`win.get_compositor_private()`) exists.
  */
 function guessWindowXID(win) {
     let id = null;
@@ -151,7 +160,8 @@ function guessWindowXID(win) {
     return null;
 }
 
-/* undecorates a window.
+/** Undecorates a window.
+ *
  * If I use set_decorations(0) from within the GNOME shell extension (i.e.
  *  from within the compositor process), the window dies.
  * If I use the same code but use `gjs` to run it, the window undecorates
@@ -159,7 +169,8 @@ function guessWindowXID(win) {
  *
  * Hence I have to make some sort of external call to do the undecoration.
  * I could use 'gjs' on a javascript file (and I'm pretty sure this is installed
- *  with GNOME-shell too), but I decided to use a system call to xprop.
+ *  with GNOME-shell too), but I decided to use a system call to xprop and set
+ *  the window's `_MOTIF_WM_HINTS` property to ask for undecoration.
  *
  * We can use xprop using the window's title to identify the window, but
  *  prefer to use the window's X ID (in case the title changes, or there are
@@ -173,6 +184,8 @@ function guessWindowXID(win) {
  *
  * See here for xprop usage for undecoration:
  * http://xrunhprof.wordpress.com/2009/04/13/removing-decorations-in-metacity/
+ *
+ * @param {Meta.Window} win - window to undecorate.
  */
 function undecorate(win) {
     /* Undecorate with xprop */
@@ -202,6 +215,11 @@ function undecorate(win) {
     Util.spawn(cmd);
 }
 
+/** Decorates a window by setting its `_MOTIF_WM_HINTS` property to ask for
+ * decoration.
+ *
+ * @param {Meta.Window} win - window to undecorate.
+ */
 function decorate(win) {
     /* Decorate with xprop: 1 == DECOR_ALL */
     let id = guessWindowXID(win),
@@ -218,28 +236,29 @@ function decorate(win) {
     Util.spawn(cmd);
 }
 
-/* setHideTitleBar: tells the window manager to hide the titlebar on
- * maximised windows (GNOME 3.4+).
+/** Tells the window manager to hide the titlebar on maximised windows.
+ * TODO: GNOME 3.2?
+ *
+ * Note - no checking of blacklists etc is done in the function. You should do
+ * it prior to calling the function (same with {@link decorate} and {@link undecorate}).
  *
  * Does this by setting the _GTK_HIDE_TITLEBAR_WHEN_MAXIMIZED hint - means
  * I can do it once and forget about it, rather than tracking maximize/unmaximize
  * events.
+ *
+ * **Caveat**: doesn't work with Ubuntu's Ambiance and Radiance window themes -
+ * my guess is they don't respect or implement this property.
+ *
+ * @param {Meta.Window} win - window to set the HIDE_TITLEBAR_WHEN_MAXIMIZED property of.
+ * @param {boolean} hide - whether to hide the titlebar or not.
+ * @param {boolean} [stopAdding] - if `win` does not have an actor and we couldn't
+ * find the window's XID, we try one more time to detect the XID, unless this
+ * is `true`. Internal use.
  */
-function setHideTitlebar(win, hide, stopAdding, force) {
-    let app = Shell.WindowTracker.get_default().get_window_app(win),
-        appid = (app ? app.get_id() : -1),
-        inList = APP_LIST.length > 0 && APP_LIST.indexOf(appid) >= 0;
-
-    /* Don't hide titlebar if it is in the blacklist or not in the whitelist or
-     * had no decorations to begin with */
-    if (!force && ((IS_BLACKLIST && inList) || (!IS_BLACKLIST && !inList) ||
-            !win._maximusDecoratedOriginal)) {
-        return;
-    }
+function setHideTitlebar(win, hide, stopAdding) {
     LOG('setHideTitlebar: ' + win.get_title() + ': ' + hide + (stopAdding ? ' (2)' : ''));
 
     let id = guessWindowXID(win);
-
     /* Newly-created windows are added to the workspace before
      * the compositor knows about them: get_compositor_private() is null.
      * Additionally things like .get_maximized() aren't properly done yet.
@@ -247,7 +266,7 @@ function setHideTitlebar(win, hide, stopAdding, force) {
      */
     if (!id && !win.get_compositor_private() && !stopAdding) {
         Mainloop.idle_add(function () {
-            setHideTitlebar(null, win, true, force); // only try once more.
+            setHideTitlebar(null, win, true); // only try once more.
             return false; // define as one-time event
         });
         return;
@@ -266,69 +285,98 @@ function setHideTitlebar(win, hide, stopAdding, force) {
         cmd[1] = '-name';
         cmd[2] = win.get_title();
     }
-
     LOG(cmd.join(' '));
     Util.spawn(cmd);
 }
 
+/** Returns whether we should affect `win`'s decorationa t all.
+ *
+ * If the window was originally undecorated we do not do anything with it
+ *  (decorate or undecorate),
+ *
+ * Also if it's in the blacklist, or if it's NOT in the whitelist, we don't
+ * do anything with it.
+ *
+ * @returns {boolean} whether the window is originally decorated and not in
+ * the blacklist (or in the whitelist).
+ */
+function shouldAffect(win) {
+    if (!win._maximusDecoratedOriginal) {
+        return false;
+    }
+    let app = Shell.WindowTracker.get_default().get_window_app(win),
+        appid = (app ? app.get_id() : -1),
+        inList = APP_LIST.length > 0 && APP_LIST.indexOf(appid) >= 0;
+    return !((IS_BLACKLIST && inList) || (!IS_BLACKLIST && !inList));
+}
+
+
 /**** Callbacks ****/
-/* onMaximise: called when a window is maximised and removes decorations. */
+/** Called when a window is maximized, including half-maximization.
+ *
+ * If the window is not in the blacklist (or is in the whitelist), we undecorate
+ * it.
+ *
+ * @param {Meta.WindowActor} actor - the window actor for the maximized window.
+ * It is expected to be maximized (in at least one direction) already - we will
+ * not check before undecorating.
+ */
 function onMaximise(shellwm, actor) {
     if (!actor) {
         return;
     }
-    let win = actor.get_meta_window(),
-        max = win.get_maximized(),
-        app = Shell.WindowTracker.get_default().get_window_app(win),
-        appid = (app ? app.get_id() : -1),
-        inList = APP_LIST.length > 0 && APP_LIST.indexOf(appid) >= 0;
-
+    let win = actor.get_meta_window();
+    if (!shouldAffect(win)) {
+        return;
+    }
+    // note: window is maximized by this point.
+    let max = win.get_maximized();
     LOG('onMaximise: ' + win.get_title() + ' [' + win.get_wm_class() + ']');
-    /* Don't undecorate if it is in the blacklist or not in the whitelist */
-    if ((IS_BLACKLIST && inList) || (!IS_BLACKLIST && !inList)) {
+    // if this is a partial maximization, and we do not wish to undecorate
+    // half-maximized windows, make sure the window is decorated.
+    if (max !== Meta.MaximizeFlags.BOTH &&
+            !settings.get_boolean(Prefs.UNDECORATE_HALF_MAXIMIZED_KEY)) {
+        decorate(win);
         return;
     }
-
-    // do nothing if maximus isn't managing decorations for this window
-    // or we are not maximized
-    // (can force if it's in the whitelist)
-    if (!max || (!win._maximusDecoratedOriginal && (IS_BLACKLIST || !inList))) {
-        return;
-    }
-
-    // if this is a partial maximization
-    if (max !== (Meta.MaximizeFlags.HORIZONTAL | Meta.MaximizeFlags.VERTICAL)) {
-        // if we want decorations for partial maximization
-        if (!settings.get_boolean(Prefs.UNDECORATE_HALF_MAXIMIZED_KEY)) {
-            decorate(win);
-            return;
-        }
-    }
-
     undecorate(win);
 }
 
+/** Called when a window is unmaximized.
+ *
+ * If the window is not in the blacklist (or is in the whitelist), we decorate
+ * it.
+ *
+ * @param {Meta.WindowActor} actor - the window actor for the unmaximized window.
+ * It is expected to be unmaximized - we will not check before decorating.
+ */
 function onUnmaximise(shellwm, actor) {
     if (!actor) {
         return;
     }
-
-    let win = actor.meta_window,
-        app = Shell.WindowTracker.get_default().get_window_app(win),
-        appid = (app ? app.get_id() : -1),
-        inList = APP_LIST.length > 0 && APP_LIST.indexOf(appid) >= 0;
-    LOG('onUnmaximise: ' + win.get_title());
-    /* don't decorate if it's not meant to be decorated
-     * (like chrome with no 'use system title bars')
-     * (but if we forced it via the blacklist/whitelist then do it)
-     */
-    if (!win._maximusDecoratedOriginal && (IS_BLACKLIST || !inList)) {
+    let win = actor.meta_window;
+    if (!shouldAffect(win)) {
         return;
     }
+    LOG('onUnmaximise: ' + win.get_title());
     decorate(win);
-    return;
 }
 
+/** Callback for a window's 'notify::maximized-horizontally' and
+ * 'notify::maximized-vertically' signals.
+ *
+ * If the window is half-maximised we force it to show its titlebar.
+ * Otherwise we set it to hide if it is maximized.
+ *
+ * Only used if using the SET_HIDE_TITLEBAR method AND we wish half-maximized
+ * windows to be *decorated* (the GTK_HIDE_TITLEBAR_WHEN_MAXIMIZED atom will
+ * hide the titlebar of half-maximized windows too).
+ *
+ * @param {Meta.Window} win - the window whose maximized-horizontally or
+ * maximized-vertically properties has changed.
+ *
+ * @see onWindowAdded
+ */
 function onWindowChangesMaximiseState(win) {
     if ((win.maximized_horizontally && !win.maximized_vertically) ||
         (!win.maximized_horizontally && win.maximized_vertically)) {
@@ -339,6 +387,30 @@ function onWindowChangesMaximiseState(win) {
     }
 }
 
+/** Callback when a window is added in any of the workspaces.
+ * This includes a window switching to another workspace.
+ *
+ * If it is a window we already know about, we do nothing.
+ *
+ * Otherwise, we:
+ *
+ * * record the window as on we know about.
+ * * store whether the window was initially decorated (e.g. Chrome windows aren't usually).
+ * * if using the SET_HIDE_TITLEBAR method, we:
+ *  + set the GTK_HIDE_TITLEBAR_WHEN_MAXIMIZED atom on the window.
+ *  + if we wish to keep half-maximised windows decorated, we connect up some signals
+ *    to ensure that half-maximised windows remain decorated (the GTK_HIDE_TITLEBAR_WHEN_MAXIMIZED
+ *    atom will automatically undecorated half-maximised windows).
+ *    See {@link onWindowChangesMaximiseState}.
+ * * otherwise (not using SET_HIDE_TITLEBAR):
+ *  + if the window is maximized, we undecorate it (see {@link undecorate});
+ *  + if the window is half-maximized and we wish to undecorate half-maximised
+ *    windows, we also undecorate it.
+ *
+ * @param {Meta.Window} win - the window that was added.
+ *
+ * @see undecorate
+ */
 function onWindowAdded(ws, win) {
     // if the window is simply switching workspaces, it will trigger a
     // window-added signal. We don't want to reprocess it then because we already
@@ -355,6 +427,10 @@ function onWindowAdded(ws, win) {
     win._maximusDecoratedOriginal = win.decorated !== false || false;
     LOG('onWindowAdded: ' + win.get_title() + ' initially decorated? ' + win._maximusDecoratedOriginal);
 
+    if (!shouldAffect(win)) {
+        return;
+    }
+
     // with set_hide_titlebar, set the window hint when the window is added and
     // there is no further need to listen to maximize/unmaximize on the window.
     if (USE_SET_HIDE_TITLEBAR) {
@@ -364,23 +440,33 @@ function onWindowAdded(ws, win) {
         if (!settings.get_boolean(Prefs.UNDECORATE_HALF_MAXIMIZED_KEY)) {
             win._maxHStateId = win.connect('notify::maximized-horizontally', onWindowChangesMaximiseState);
             win._maxVStateId = win.connect('notify::maximized-vertically', onWindowChangesMaximiseState);
+            if (win.get_maximized()) {
+                onWindowChangesMaximiseState(win);
+            }
         }
-        return;
-    }
-
-    if (!win.get_compositor_private()) {
-        Mainloop.idle_add(function () {
-            onMaximise(null, win.get_compositor_private());
-            return false; // define as one-time event
-        });
     } else {
-        onMaximise(null, win.get_compositor_private());
+        // if it is added initially maximized, we undecorate it.
+        let max = win.get_maximized();
+        if ((max === Meta.MaximizeFlags.BOTH) ||
+            (settings.get_boolean(Prefs.UNDECORATE_HALF_MAXIMIZED_KEY) && max)) {
+            if (!win.get_compositor_private()) {
+                Mainloop.idle_add(function () {
+                    undecorate(win);
+                    return false; // define as one-time event
+                });
+            } else {
+                undecorate(win);
+            }
+        }
     }
 }
 
-/* Whenever the number of workspaces is changed,
- * listen to an 'add window' event in case it starts
- * maximised.
+/** Callback whenever the number of workspaces changes.
+ *
+ * We ensure that we are listening to the 'window-added' signal on each f
+ * the workspaces.
+ *
+ * @see onWindowAdded
  */
 function onChangeNWorkspaces() {
     let ws,
@@ -398,7 +484,7 @@ function onChangeNWorkspaces() {
     }
 }
 
-/* start listening to events and affect already-existing windows. */
+/** Start listening to events and undecorate already-existing windows. */
 function startUndecorating() {
     // cache some variables for convenience
     IS_BLACKLIST = settings.get_boolean(Prefs.IS_BLACKLIST_KEY);
@@ -441,23 +527,18 @@ function startUndecorating() {
         let winList = global.get_window_actors().map(function (w) { return w.meta_window; }),
             i       = winList.length;
         while (i--) {
-            if (winList[i].window_type === Meta.WindowType.DESKTOP) {
+            let win = winList[i];
+            if (win.window_type === Meta.WindowType.DESKTOP) {
                 continue;
             }
-            if (USE_SET_HIDE_TITLEBAR) {
-                onWindowAdded(null, winList[i]);
-            } else {
-                /* store original decorated state to restore after. If undefined, then decorated. */
-                winList[i]._maximusDecoratedOriginal = winList[i].decorated !== false || false;
-                onMaximise(null, winList[i].get_compositor_private());
-            }
+            onWindowAdded(null, win);
         }
         onChangeNWorkspaces();
         return false; // define as one-time event
     });
 }
 
-/* stop listening to events, restore all windows back to their original
+/** Stop listening to events, restore all windows back to their original
  * decoration state. */
 function stopUndecorating() {
     if (maxID) global.window_manager.disconnect(maxID);
@@ -480,13 +561,15 @@ function stopUndecorating() {
     let winList = global.get_window_actors().map(function (w) { return w.meta_window; }),
         i       = winList.length;
     while (i--) {
-        if (winList[i].window_type === Meta.WindowType.DESKTOP) {
+        let win = winList[i];
+        if (win.window_type === Meta.WindowType.DESKTOP) {
             continue;
         }
-        if (winList[i].hasOwnProperty('_maximusDecoratedOriginal')) {
+        // if it wasn't decorated originally, we haven't done anything to it so
+        // don't need to undo anything.
+        if (win._maximusDecoratedOriginal) {
             if (USE_SET_HIDE_TITLEBAR) {
-                let win = winList[i];
-                setHideTitlebar(win, false, false, true);
+                setHideTitlebar(win, false);
                 if (win._maxHStateId) {
                     win.disconnect(win._maxHStateId);
                     delete win._maxHStateId;
@@ -495,16 +578,10 @@ function stopUndecorating() {
                     win.disconnect(win._maxVStateId);
                     delete win._maxVStateId;
                 }
-                if (win._maximusDecoratedOriginal) {
-                    decorate(win);
-                }
-            } else {
-                if (!winList[i].decorated && winList[i]._maximusDecoratedOriginal) {
-                    onUnmaximise(null, winList[i].get_compositor_private());
-                }
             }
-            delete winList[i]._maximusDecoratedOriginal;
+            decorate(win);
         }
+        delete win._maximusDecoratedOriginal;
     }
 
     if (oldFullscreenPref !== null) {
@@ -522,7 +599,7 @@ function enable() {
     startUndecorating();
 
     /* Monitor settings changes */
-    settingsChangedID = settings.connect('changed', function (settings, key) {
+    settingsChangedID = settings.connect('changed', function () {
         // redecorate every window and undecorate again according to the
         // new settings.
         stopUndecorating();
