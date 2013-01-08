@@ -13,12 +13,16 @@ NOTE: with the titlebar of a window hidden, you may find it difficult to unmaxim
 In this case, I recommend either remembering your system's keyboard shortcut for un/maximising a window (e.g. Alt+F10 on Fedora), or use the [Window Options GNOME shell extension](https://bitbucket.org/mathematicalcoffee/window-options-gnome-shell-extension) which adds a drop-down menu to the title bar in the top panel with these options (shameless plug, I wrote that one). You might also like the [Window Buttons extension](https://github.com/biox/Gnome-Shell-Window-Buttons-Extension) which adds the close, minimize, maximize buttons to the top panel.
 
 ### Changelog (see `Changelog` file for further details):
-v4 (e.g.o), v1.3 (tagged):
 
-* added blacklists/whitelists
-* fixed bug where Maximus wouldn't work on windows with non EN-utf8 characters in the title (bug #4)
-* made it harder to get stuck in fullscreen mode (particularly thunderbird)
-* better behaviour when maximizing from fullscreen to halfscreen.
+* v10 (e.g.o), v2.2 (tagged):
+ + changed the default method to hide the titlebar to hopefully be more stable, if the user is not using the Ambiance or Radiance themes (the old `set_hide_titlebar` bookmark)
+ + much code cleaning
+ + various misc. fixes.
+* v4 (e.g.o), v1.3 (tagged):
+ + added blacklists/whitelists
+ + fixed bug where Maximus wouldn't work on windows with non EN-utf8 characters in the title (bug #4)
+ + made it harder to get stuck in fullscreen mode (particularly thunderbird)
+ + better behaviour when maximizing from fullscreen to halfscreen.
 
 Written 2012 by mathematical.coffee [mathematical.coffee@gmail.com](mailto:mathematical.coffee@gmail.com?subject=maximus%20question).   
 Project webpage: [at  bitbucket](https://bitbucket.org/mathematicalcoffee/maximus-gnome-shell-extension).
@@ -72,7 +76,7 @@ One-click install from [extensions.gnome.org](https://extensions.gnome.org/exten
 
 # Branch Info (for developers)
 
-* 'Stable' branch works with GNOME 3.2 and GNOME 3.4. No fancy gsettings or UI for setting options (this extension doesn't have options for the moment).
+* 'stable' branch works with GNOME 3.2+. No fancy prefs widget.
 * 'gnome3.4' branch: GNOME3.4+ with prefs widget.
-* 'default' branch: I plan to make this the gnome3.4+ development branch.
-* 'set_hide_titlebar' bookmark: does the decoration/undecoration by setting the `_GDK_HIDE_TITLEBAR_WHEN_MAXIMIZED` window hint. Compatible with 3.2 to 3.6 (although no prefs widget yet). It seems less bug-prone than the normal branch, but **will not work** with the Unity themes (Ambiance, Radiance) which do not respect the hint. Also, the `undecorateHalfMaximised` option is permanently `true`, no way to fix it.
+* 'default' branch: the gnome3.4+ development branch (has prefs.js). i.e. dev branch for 'gnome3.4'.
+* 'polyglot-dev' branch: the gnome3.2+ development branch (same as above but no prefs.js). i.e. dev branch for 'stable'.
