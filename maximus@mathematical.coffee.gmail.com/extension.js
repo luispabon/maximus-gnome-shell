@@ -87,7 +87,7 @@ const Prefs = Me.imports.prefs;
 // convenience
 Meta.MaximizeFlags.BOTH = (Meta.MaximizeFlags.VERTICAL | Meta.MaximizeFlags.HORIZONTAL);
 
-let maxID = null, minID = null, settingsChangedID = null, changeWorkspaceID = null;
+let maxID = null, minID = null, settingsChangedID = null, changeWorkspaceID = null, grabID = null;
 let workspaces = [];
 let oldFullscreenPref = null;
 let settings = null;
@@ -310,6 +310,49 @@ function shouldAffect(win) {
     return !((IS_BLACKLIST && inList) || (!IS_BLACKLIST && !inList));
 }
 
+/** Checks if `win` should be undecorated, based *purely* off its maximised
+ * state (doesn't incorporate blacklist).
+ *
+ * If it's fully-maximized or half-maximised and undecorateHalfMaximised is true,
+ * this returns true.
+ *
+ * Use with `shouldAffect` to get a full check..
+ */
+function shouldBeUndecorated(win) {
+    let max = win.get_maximized();
+    return ((max === Meta.MaximizeFlags.BOTH) ||
+        (settings.get_boolean(Prefs.UNDECORATE_HALF_MAXIMIZED_KEY) && max));
+}
+
+/** Checks if `win` is fully maximised, or half-maximised + undecorateHalfMaximised.
+ * If so, undecorates the window. */
+function possiblyUndecorate(win) {
+    if (shouldBeUndecorated(win)) {
+        if (!win.get_compositor_private()) {
+            Mainloop.idle_add(function () {
+                undecorate(win);
+                return false; // define as one-time event
+            });
+        } else {
+            undecorate(win);
+        }
+    }
+}
+
+/** Checks if `win` is fully maximised, or half-maximised + undecorateHalfMaximised.
+ * If *NOT*, redecorates the window. */
+function possiblyRedecorate(win) {
+    if (!shouldBeUndecorated(win)) {
+        if (!win.get_compositor_private()) {
+            Mainloop.idle_add(function () {
+                decorate(win);
+                return false; // define as one-time event
+            });
+        } else {
+            decorate(win);
+        }
+    }
+}
 
 /**** Callbacks ****/
 /** Called when a window is maximized, including half-maximization.
@@ -359,7 +402,26 @@ function onUnmaximise(shellwm, actor) {
         return;
     }
     LOG('onUnmaximise: ' + win.get_title());
-    decorate(win);
+    // if the user is unmaximizing by dragging, we wait to decorate until they
+    // have dropped the window, so that we don't force the user to drop
+    // the window prematurely with the redecorate (which stops the grab).
+    //
+    // This is only necessary if USE_SET_HIDE_TITLEBAR is `false` (otherwise
+    // this is not an issue).
+    if (!USE_SET_HIDE_TITLEBAR && global.display.get_grab_op() === Meta.GrabOp.MOVING) {
+        if (grabID) {
+            // shouldn't happen, but oh well.
+            global.display.disconnect(grabID);
+            grabID = 0;
+        }
+        grabID = global.display.connect('grab-op-end', function () {
+            possiblyRedecorate(win);
+            global.display.disconnect(grabID);
+            grabID = 0;
+        });
+    } else {
+        decorate(win);
+    }
 }
 
 /** Callback for a window's 'notify::maximized-horizontally' and
@@ -446,18 +508,7 @@ function onWindowAdded(ws, win) {
         }
     } else {
         // if it is added initially maximized, we undecorate it.
-        let max = win.get_maximized();
-        if ((max === Meta.MaximizeFlags.BOTH) ||
-            (settings.get_boolean(Prefs.UNDECORATE_HALF_MAXIMIZED_KEY) && max)) {
-            if (!win.get_compositor_private()) {
-                Mainloop.idle_add(function () {
-                    undecorate(win);
-                    return false; // define as one-time event
-                });
-            } else {
-                undecorate(win);
-            }
-        }
+        possiblyUndecorate(win);
     }
 }
 
@@ -544,6 +595,11 @@ function stopUndecorating() {
     if (maxID) global.window_manager.disconnect(maxID);
     if (minID) global.window_manager.disconnect(minID);
     if (changeWorkspaceID) global.window_manager.disconnect(changeWorkspaceID);
+    if (grabID) global.display.disconnect(grabID);
+    maxID = 0;
+    minID = 0;
+    changeWorkspaceID = 0;
+    grabID = 0;
 
     /* disconnect window-added from workspaces */
     let i = workspaces.length;
