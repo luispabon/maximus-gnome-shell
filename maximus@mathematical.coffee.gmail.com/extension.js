@@ -404,8 +404,20 @@ function startUndecorating() {
     changeWorkspaceID = global.screen.connect('notify::n-workspaces', onChangeNWorkspaces);
     // if we are not using the set_hide_titlebar hint, we must listen to maximize and unmaximize events.
     if (!USE_SET_HIDE_TITLEBAR) {
+        /* this is needed to prevent Metacity from interpreting an attempted drag
+         * of an undecorated window as a fullscreen request. Otherwise thunderbird
+         * (in particular) has no way to get out of fullscreen, resulting in the user
+         * being stuck there.
+         * See issue #6
+         * https://bitbucket.org/mathematicalcoffee/maximus-gnome-shell-extension/issue/6
+         *
+         * Once we can properly set the window's hide_titlebar_when_maximized property
+         * this will no loner be necessary.
+         */
         maxID = global.window_manager.connect('maximize', onMaximise);
         minID = global.window_manager.connect('unmaximize', onUnmaximise);
+        oldFullscreenPref = Meta.prefs_get_force_fullscreen();
+        Meta.prefs_set_force_fullscreen(false);
     }
 
     /* Go through already-maximised windows & undecorate.
@@ -486,6 +498,12 @@ function stopUndecorating() {
             delete winList[i]._maximusDecoratedOriginal;
         }
     }
+
+    if (oldFullscreenPref !== null) {
+        /* restore old meta force fullscreen pref */
+        Meta.prefs_set_force_fullscreen(oldFullscreenPref);
+        oldFullscreenPref = null;
+    }
 }
 
 function init() {
@@ -501,19 +519,6 @@ function enable() {
     }
 
     startUndecorating();
-
-    /* this is needed to prevent Metacity from interpreting an attempted drag
-     * of an undecorated window as a fullscreen request. Otherwise thunderbird
-     * (in particular) has no way to get out of fullscreen, resulting in the user
-     * being stuck there.
-     * See issue #6
-     * https://bitbucket.org/mathematicalcoffee/maximus-gnome-shell-extension/issue/6
-     *
-     * Once we can properly set the window's hide_titlebar_when_maximized property
-     * this will no loner be necessary.
-     */
-    oldFullscreenPref = Meta.prefs_get_force_fullscreen();
-    Meta.prefs_set_force_fullscreen(false);
 
     /* Monitor settings changes */
     settingsChangedID = settings.connect('changed', function (settings, key) {
@@ -534,9 +539,6 @@ function enable() {
 
 function disable() {
     stopUndecorating();
-
-    /* restore old meta force fullscreen pref */
-    Meta.prefs_set_force_fullscreen(oldFullscreenPref);
 
     /* disconnect settings changes */
     if (settingsChangedID) {
