@@ -498,6 +498,8 @@ function startUndecorating() {
     changeWorkspaceID = global.screen.connect('notify::n-workspaces', onChangeNWorkspaces);
     // if we are not using the set_hide_titlebar hint, we must listen to maximize and unmaximize events.
     if (!USE_SET_HIDE_TITLEBAR) {
+        maxID = global.window_manager.connect('maximize', onMaximise);
+        minID = global.window_manager.connect('unmaximize', onUnmaximise);
         /* this is needed to prevent Metacity from interpreting an attempted drag
          * of an undecorated window as a fullscreen request. Otherwise thunderbird
          * (in particular) has no way to get out of fullscreen, resulting in the user
@@ -508,8 +510,6 @@ function startUndecorating() {
          * Once we can properly set the window's hide_titlebar_when_maximized property
          * this will no loner be necessary.
          */
-        maxID = global.window_manager.connect('maximize', onMaximise);
-        minID = global.window_manager.connect('unmaximize', onUnmaximise);
         oldFullscreenPref = Meta.prefs_get_force_fullscreen();
         Meta.prefs_set_force_fullscreen(false);
     }
