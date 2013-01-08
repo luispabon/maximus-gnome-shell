@@ -400,6 +400,14 @@ function onChangeNWorkspaces() {
 
 /* start listening to events and affect already-existing windows. */
 function startUndecorating() {
+    // cache some variables for convenience
+    IS_BLACKLIST = settings.get_boolean(Prefs.IS_BLACKLIST_KEY);
+    APP_LIST = settings.get_strv(Prefs.BLACKLIST_KEY);
+    USE_SET_HIDE_TITLEBAR = settings.get_boolean(Prefs.USE_SET_HIDE_TITLEBAR_KEY);
+    if (USE_SET_HIDE_TITLEBAR && Meta.prefs_get_theme().match(/^(?:Ambiance|Radiance)$/)) {
+        USE_SET_HIDE_TITLEBAR = false;
+    }
+
     /* Connect events */
     changeWorkspaceID = global.screen.connect('notify::n-workspaces', onChangeNWorkspaces);
     // if we are not using the set_hide_titlebar hint, we must listen to maximize and unmaximize events.
@@ -511,13 +519,6 @@ function init() {
 }
 
 function enable() {
-    IS_BLACKLIST = settings.get_boolean(Prefs.IS_BLACKLIST_KEY);
-    APP_LIST = settings.get_strv(Prefs.BLACKLIST_KEY);
-    USE_SET_HIDE_TITLEBAR = settings.get_boolean(Prefs.USE_SET_HIDE_TITLEBAR_KEY);
-    if (USE_SET_HIDE_TITLEBAR && Meta.prefs_get_theme().match(/^(?:Ambiance|Radiance)$/)) {
-        USE_SET_HIDE_TITLEBAR = false;
-    }
-
     startUndecorating();
 
     /* Monitor settings changes */
@@ -525,13 +526,6 @@ function enable() {
         // redecorate every window and undecorate again according to the
         // new settings.
         stopUndecorating();
-
-        IS_BLACKLIST = settings.get_boolean(Prefs.IS_BLACKLIST_KEY);
-        APP_LIST = settings.get_strv(Prefs.BLACKLIST_KEY);
-        USE_SET_HIDE_TITLEBAR = settings.get_boolean(Prefs.USE_SET_HIDE_TITLEBAR_KEY);
-        if (USE_SET_HIDE_TITLEBAR && Meta.prefs_get_theme().match(/^(?:Ambiance|Radiance)$/)) {
-            USE_SET_HIDE_TITLEBAR = false;
-        }
 
         startUndecorating();
     });
