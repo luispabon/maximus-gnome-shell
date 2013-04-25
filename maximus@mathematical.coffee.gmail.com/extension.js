@@ -95,7 +95,7 @@ let onetime = 0;
 let APP_LIST, IS_BLACKLIST, USE_SET_HIDE_TITLEBAR;
 
 function LOG(message) {
-    //log(message);
+    log(message);
 }
 
 /** Guesses the X ID of a window.
@@ -320,6 +320,7 @@ function shouldAffect(win) {
  */
 function shouldBeUndecorated(win) {
     let max = win.get_maximized();
+    LOG('shouldBeUndecorated. maximised? ' + max);
     return ((max === Meta.MaximizeFlags.BOTH) ||
         (settings.get_boolean(Prefs.UNDECORATE_HALF_MAXIMIZED_KEY) && max));
 }
@@ -328,12 +329,14 @@ function shouldBeUndecorated(win) {
  * If so, undecorates the window. */
 function possiblyUndecorate(win) {
     if (shouldBeUndecorated(win)) {
+        LOG('e');
         if (!win.get_compositor_private()) {
             Mainloop.idle_add(function () {
                 undecorate(win);
                 return false; // define as one-time event
             });
         } else {
+        LOG('f');
             undecorate(win);
         }
     }
@@ -492,10 +495,12 @@ function onWindowAdded(ws, win) {
     if (!shouldAffect(win)) {
         return;
     }
+    LOG('onWindowAdded: ' + win.get_title() + ' b');
 
     // with set_hide_titlebar, set the window hint when the window is added and
     // there is no further need to listen to maximize/unmaximize on the window.
     if (USE_SET_HIDE_TITLEBAR) {
+        LOG('onWindowAdded: ' + win.get_title() + ' c');
         setHideTitlebar(win, true);
         // set_hide_titlebar undecorates half maximized, so if we wish not to we
         // will have to manually redo it ourselves
@@ -507,6 +512,7 @@ function onWindowAdded(ws, win) {
             }
         }
     } else {
+        LOG('onWindowAdded: ' + win.get_title() + ' d');
         // if it is added initially maximized, we undecorate it.
         possiblyUndecorate(win);
     }
@@ -531,7 +537,12 @@ function onChangeNWorkspaces() {
     while (i--) {
         ws = global.screen.get_workspace_by_index(i);
         workspaces.push(ws);
-        ws._MaximusWindowAddedId = ws.connect('window-added', onWindowAdded);
+        // we need to add a Mainloop.idle_add, or else in onWindowAdded the
+        // window's maximized state is not correct yet.
+        //ws._MaximusWindowAddedId = ws.connect('window-added', onWindowAdded);
+        ws._MaximusWindowAddedId = ws.connect('window-added', function (ws, win) {
+            Mainloop.idle_add(function () { onWindowAdded(ws, win); return false; })
+        });
     }
 }
 
