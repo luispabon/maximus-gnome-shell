@@ -95,7 +95,7 @@ let onetime = 0;
 let APP_LIST, IS_BLACKLIST, USE_SET_HIDE_TITLEBAR;
 
 function LOG(message) {
-    log(message);
+    // log(message);
 }
 
 /** Guesses the X ID of a window.
