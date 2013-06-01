@@ -217,7 +217,11 @@ function undecorate(win) {
     // However, is there a use case where this would happen legitimately?
     // For some reaons the Qt apps seem to take a while to be refocused.
     Meta.later_add(Meta.LaterType.IDLE, function () {
-        win.focus(global.get_current_time());
+        if (win.focus) {
+            win.focus(global.get_current_time());
+        } else {
+            win.activate(global.get_current_time());
+        }
     });
 }
 
@@ -244,7 +248,11 @@ function decorate(win) {
     // However, is there a use case where this would happen legitimately?
     // For some reaons the Qt apps seem to take a while to be refocused.
     Meta.later_add(Meta.LaterType.IDLE, function () {
-        win.focus(global.get_current_time());
+        if (win.focus) {
+            win.focus(global.get_current_time());
+        } else {
+            win.activate(global.get_current_time());
+        }
     });
 }
 

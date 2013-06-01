@@ -14,6 +14,7 @@ In this case, I recommend either remembering your system's keyboard shortcut for
 
 ### Known issues
 
+* When restarting gnome-shell with a Qt app maximized (e.g. Texmaker), it will no longer redecorate on unmaximize. Only occurs *after restarting* gnome-shell, not when disabling/re-enabling. Not something I can reliably fix as I cannot detect whether a window is from a Qt app from the extension (and even then I cannot detect whether it was intended to be undecorated or not).
 * You cannot maximize and instantly unmaximize Qt apps (e.g. with keybindings); the unmaximize won't work until you wait a tiny bit (milliseconds) after the maximize.
   Qt apps seem to take a while to regain focus after being un/redecorated.
 
