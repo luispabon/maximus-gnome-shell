@@ -12,6 +12,11 @@ Useful for netbooks with small screens.
 NOTE: with the titlebar of a window hidden, you may find it difficult to unmaximise/move a window.
 In this case, I recommend either remembering your system's keyboard shortcut for un/maximising a window (e.g. Alt+F10 on Fedora), or use the [Window Options GNOME shell extension](https://bitbucket.org/mathematicalcoffee/window-options-gnome-shell-extension) which adds a drop-down menu to the title bar in the top panel with these options (shameless plug, I wrote that one). You might also like the [Window Buttons extension](https://github.com/biox/Gnome-Shell-Window-Buttons-Extension) which adds the close, minimize, maximize buttons to the top panel.
 
+### Known issues
+
+* You cannot maximize and instantly unmaximize Qt apps (e.g. with keybindings); the unmaximize won't work until you wait a tiny bit (milliseconds) after the maximize.
+  Qt apps seem to take a while to regain focus after being un/redecorated.
+
 ### Changelog (see `Changelog` file for further details):
 
 * v10 (e.g.o), v2.2 (tagged):

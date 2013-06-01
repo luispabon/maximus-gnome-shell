@@ -95,7 +95,7 @@ let onetime = 0;
 let APP_LIST, IS_BLACKLIST, USE_SET_HIDE_TITLEBAR;
 
 function LOG(message) {
-    // log(message);
+    //log(message);
 }
 
 /** Guesses the X ID of a window.
@@ -213,6 +213,12 @@ function undecorate(win) {
     }
     LOG(cmd.join(' '));
     Util.spawn(cmd);
+    // #25: when undecorating a Qt app (texmaker, keepassx) somehow focus is lost.
+    // However, is there a use case where this would happen legitimately?
+    // For some reaons the Qt apps seem to take a while to be refocused.
+    Meta.later_add(Meta.LaterType.IDLE, function () {
+        win.focus(global.get_current_time());
+    });
 }
 
 /** Decorates a window by setting its `_MOTIF_WM_HINTS` property to ask for
@@ -234,6 +240,12 @@ function decorate(win) {
     }
     LOG(cmd.join(' '));
     Util.spawn(cmd);
+    // #25: when undecorating a Qt app (texmaker, keepassx) somehow focus is lost.
+    // However, is there a use case where this would happen legitimately?
+    // For some reaons the Qt apps seem to take a while to be refocused.
+    Meta.later_add(Meta.LaterType.IDLE, function () {
+        win.focus(global.get_current_time());
+    });
 }
 
 /** Tells the window manager to hide the titlebar on maximised windows.
@@ -626,6 +638,7 @@ function stopUndecorating() {
         if (win.window_type === Meta.WindowType.DESKTOP) {
             continue;
         }
+        LOG('stopUndecorating: ' + win.title);
         // if it wasn't decorated originally, we haven't done anything to it so
         // don't need to undo anything.
         if (win._maximusDecoratedOriginal) {
