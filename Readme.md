@@ -19,6 +19,8 @@ In this case, I recommend either remembering your system's keyboard shortcut for
 
 ### Changelog (see `Changelog` file for further details):
 
+* v[in-development]???:
+ + When dragging to unmaximize, the window does not redecorate until it is dropped. Prevents "breaking" the drag (#7).
 * v10 (e.g.o), v2.2 (tagged):
  + changed the default method to hide the titlebar to hopefully be more stable, if the user is not using the Ambiance or Radiance themes (the old `set_hide_titlebar` bookmark)
  + much code cleaning
@@ -76,6 +78,23 @@ One-click install from [extensions.gnome.org](https://extensions.gnome.org/exten
 ## From this website:
 1. Download the .zip file on the [Downloads page](https://bitbucket.org/mathematicalcoffee/maximus-gnome-shell-extension/downloads).
 2. Open `gnome-tweak-tool`, go to "Shell Extensions", "Install Extension" and select the .zip file.
+
+## From the repository:
+
+If using GNOME 3.4, 3.6, or 3.8, use the `gnome3.4` branch.
+Otherwise (GNOME 3.2), use the `stable` branch.
+
+```
+hg clone ssh://hg@bitbucket.org/mathematicalcoffee/maximus-gnome-shell-extension
+hg up gnome3.4 # or `stable` if on GNOME 3.2
+cd maximus-gnome-shell-extension
+make # <-- VERY IMPORTANT
+cp -r maximus@mathematical.coffee.gmail.com ~/.local/share/gnome-shell/extensions
+# enable maximus if you haven't already:
+gnome-shell-extension-tool -e maximus@mathematical.coffee.gmail.com
+```
+
+Now restart gnome-shell.
 
 ---
 
