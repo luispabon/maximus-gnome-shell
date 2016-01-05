@@ -20,7 +20,11 @@ In this case, I recommend either remembering your system's keyboard shortcut for
 
 ### Changelog (see `Changelog` file for further details):
 
-* v[in-development]???:
+* v12 (e.g.o), v2.4 (tagged):
+ + This version is only compatible with Gnome 3.18.
+* v11 (e.g.o), v2.3 (tagged):
+ + Imported to new Github repo due to original being unmaintained.
+ + Make compatible up to Gnome 3.16.
  + When dragging to unmaximize, the window does not redecorate until it is dropped. Prevents "breaking" the drag (#7).
 * v10 (e.g.o), v2.2 (tagged):
  + changed the default method to hide the titlebar to hopefully be more stable, if the user is not using the Ambiance or Radiance themes (the old `set_hide_titlebar` bookmark)
@@ -32,7 +36,7 @@ In this case, I recommend either remembering your system's keyboard shortcut for
  + made it harder to get stuck in fullscreen mode (particularly thunderbird)
  + better behaviour when maximizing from fullscreen to halfscreen.
 
-Written 2012 by mathematical.coffee [mathematical.coffee@gmail.com](mailto:mathematical.coffee@gmail.com?subject=maximus%20question).   
+Written 2012 by mathematical.coffee [mathematical.coffee@gmail.com](mailto:mathematical.coffee@gmail.com?subject=maximus%20question).
 Project webpage: [at  bitbucket](https://bitbucket.org/mathematicalcoffee/maximus-gnome-shell-extension).
 
 ---

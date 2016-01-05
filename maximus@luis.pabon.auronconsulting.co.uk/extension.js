@@ -71,6 +71,7 @@
 
 /* ** Code proper, don't edit anything below ** */
 const GLib = imports.gi.GLib;
+const Gtk = imports.gi.Gtk;
 const Lang = imports.lang;
 const Mainloop = imports.mainloop;
 const Meta = imports.gi.Meta;
@@ -566,7 +567,7 @@ function startUndecorating() {
     IS_BLACKLIST = settings.get_boolean(Prefs.IS_BLACKLIST_KEY);
     APP_LIST = settings.get_strv(Prefs.BLACKLIST_KEY);
     USE_SET_HIDE_TITLEBAR = settings.get_boolean(Prefs.USE_SET_HIDE_TITLEBAR_KEY);
-    if (USE_SET_HIDE_TITLEBAR && Meta.prefs_get_theme().match(/^(?:Ambiance|Radiance)$/)) {
+    if (USE_SET_HIDE_TITLEBAR && Gtk.Settings.get_default().gtk_theme_name.match(/^(?:Ambiance|Radiance)$/)) {
         USE_SET_HIDE_TITLEBAR = false;
     }
 
