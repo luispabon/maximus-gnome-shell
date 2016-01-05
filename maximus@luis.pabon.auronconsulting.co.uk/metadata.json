@@ -1,0 +1,20 @@
+{
+ "extension-id": "maximus",
+ "uuid": "maximus@luis.pabon.auronconsulting.co.uk",
+ "settings-schema": "org.gnome.shell.extensions.maximus",
+ "name": "Maximus NG",
+ "gettext-domain": "maximus",
+ "description": "Undecorate maximized windows, like Ubuntu's old 'Maximus' package. See readme at extension homepage. Originally at https://bitbucket.org/mathematicalcoffee/maximus-gnome-shell-extension.",
+ "shell-version": [
+     "3.4",
+     "3.6",
+     "3.8",
+     "3.10",
+     "3.12",
+     "3.14",
+     "3.16"
+ ],
+ "url": "https://github.com/luispabon/maximus-gnome-shell",
+ "version": 10,
+ "dev-version": "2.3_gnome3.10+"
+}
