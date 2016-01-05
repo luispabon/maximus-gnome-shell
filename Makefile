@@ -1,5 +1,5 @@
 #=============================================================================
-UUID=maximus@mathematical.coffee.gmail.com
+UUID=maximus@luis.pabon.auronconsulting.co.uk
 FILES=metadata.json *.js stylesheet.css schemas
 #=============================================================================
 default_target: all
@@ -15,8 +15,8 @@ all: clean
 	fi
 
 zip: all
-	zip -rq $(UUID).zip $(FILES:%=$(UUID)/%)
+	zip -jrq $(UUID).zip $(FILES:%=$(UUID)/%)
 
 dev-zip: all
 	(cd $(UUID); \
-		zip -rq ../$(UUID).zip $(FILES))
+		zip -jrq ../$(UUID).zip $(FILES))
