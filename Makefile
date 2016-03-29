@@ -2,6 +2,9 @@
 UUID=$(shell cat src/metadata.json | python -c "import json,sys;obj=json.load(sys.stdin);print obj['uuid'];")
 SRCDIR=src
 BUILDDIR=build
+MKFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
+MKFILE_DIR := $(dir $(MKFILE_PATH))
+ABS_BUILDDIR=$(MKFILE_DIR)$(BUILDDIR)
 FILES=metadata.json *.js stylesheet.css schemas
 #=============================================================================
 default_target: all
@@ -19,4 +22,6 @@ all: clean
 	fi
 
 zip: all
-	zip -jrq $(BUILDDIR)/$(UUID).zip $(FILES:%=$(BUILDDIR)/$(UUID)/%)
+	(cd $(BUILDDIR)/$(UUID); \
+         zip -rq $(ABS_BUILDDIR)/$(UUID).zip $(FILES:%=%); \
+        );
