@@ -2,10 +2,12 @@
 UUID=$(shell cat src/metadata.json | python -c "import json,sys;obj=json.load(sys.stdin);print obj['uuid'];")
 SRCDIR=src
 BUILDDIR=build
-MKFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
-MKFILE_DIR := $(dir $(MKFILE_PATH))
-ABS_BUILDDIR=$(MKFILE_DIR)$(BUILDDIR)
 FILES=metadata.json *.js stylesheet.css schemas
+MKFILE_PATH := $(lastword $(MAKEFILE_LIST))
+MKFILE_DIR := $(dir $(MKFILE_PATH))
+ABS_MKFILE_PATH := $(abspath $(MKFILE_PATH))
+ABS_MKFILE_DIR := $(abspath $(MKFILE_DIR))
+ABS_BUILDDIR=$(ABS_MKFILE_DIR)/$(BUILDDIR)
 #=============================================================================
 default_target: all
 .PHONY: clean all zip
