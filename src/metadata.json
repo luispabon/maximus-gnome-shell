@@ -6,7 +6,7 @@
  "gettext-domain": "maximus",
  "description": "Undecorate maximized windows, like Ubuntu's old 'Maximus' package. See readme at extension homepage. Originally at https://bitbucket.org/mathematicalcoffee/maximus-gnome-shell-extension.",
  "shell-version": [
-     "3.18"
+     "3.20"
  ],
  "url": "https://github.com/luispabon/maximus-gnome-shell",
  "version": 11,
