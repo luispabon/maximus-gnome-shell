@@ -518,6 +518,15 @@ function onWindowAdded(ws, win) {
     // there is no further need to listen to maximize/unmaximize on the window.
     if (USE_SET_HIDE_TITLEBAR) {
         setHideTitlebar(win, true);
+		
+		if(shouldBeUndecorated(win)){
+			win.unmaximize(Meta.MaximizeFlags.HORIZONTAL|Meta.MaximizeFlags.VERTICAL);
+			Mainloop.idle_add(function () {
+				win.maximize(Meta.MaximizeFlags.HORIZONTAL|Meta.MaximizeFlags.VERTICAL);
+				return false;
+			});
+		}
+	
         // set_hide_titlebar undecorates half maximized, so if we wish not to we
         // will have to manually redo it ourselves
         if (!settings.get_boolean(Prefs.UNDECORATE_HALF_MAXIMIZED_KEY)) {
