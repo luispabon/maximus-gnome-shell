@@ -88,7 +88,7 @@ const Prefs = Me.imports.prefs;
 // convenience
 Meta.MaximizeFlags.BOTH = (Meta.MaximizeFlags.VERTICAL | Meta.MaximizeFlags.HORIZONTAL);
 
-let maxID = null, minID = null, settingsChangedID = null, changeWorkspaceID = null, grabID = null;
+let sizeChangeID = null, settingsChangedID = null, changeWorkspaceID = null, grabID = null;
 let workspaces = [];
 let oldFullscreenPref = null;
 let settings = null;
@@ -342,7 +342,7 @@ function shouldAffect(win) {
 function shouldBeUndecorated(win) {
     let max = win.get_maximized();
     return ((max === Meta.MaximizeFlags.BOTH) ||
-        (settings.get_boolean(Prefs.UNDECORATE_HALF_MAXIMIZED_KEY) && max));
+        settings.get_boolean(Prefs.UNDECORATE_HALF_MAXIMIZED_KEY));
 }
 
 /** Checks if `win` is fully maximised, or half-maximised + undecorateHalfMaximised.
@@ -376,6 +376,27 @@ function possiblyRedecorate(win) {
 }
 
 /**** Callbacks ****/
+/** Called when a window is size changed.
+ *
+ * Gnome 3.22 replaces the event of 'maximize' and 'unmaximize' with 'size-change'.
+ *
+ * @param {Meta.WindowActor} actor - the window actor for the maximized window.
+ * @param {boolean} whichChange - 0 if maximize, 1 if unmaximize
+ * Checks if the event is maximize or unmaximize, and call corresponding function.
+ */
+function onSizeChange(shellwm, actor, whichChange) {
+	switch (whichChange) {
+		case 0:
+			return onMaximise(shellwm, actor);
+		case 1:
+			return onUnmaximise(shellwm, actor);
+		default:
+			LOG('onSizeChange exception.');
+			return;
+	}
+	return;
+}
+
 /** Called when a window is maximized, including half-maximization.
  *
  * If the window is not in the blacklist (or is in the whitelist), we undecorate
@@ -441,7 +462,7 @@ function onUnmaximise(shellwm, actor) {
             grabID = 0;
         });
     } else {
-        decorate(win);
+        possiblyRedecorate(win);
     }
 }
 
@@ -518,7 +539,7 @@ function onWindowAdded(ws, win) {
     // there is no further need to listen to maximize/unmaximize on the window.
     if (USE_SET_HIDE_TITLEBAR) {
         setHideTitlebar(win, true);
-		
+
 		if(shouldBeUndecorated(win)){
 			win.unmaximize(Meta.MaximizeFlags.HORIZONTAL|Meta.MaximizeFlags.VERTICAL);
 			Mainloop.idle_add(function () {
@@ -526,7 +547,7 @@ function onWindowAdded(ws, win) {
 				return false;
 			});
 		}
-	
+
         // set_hide_titlebar undecorates half maximized, so if we wish not to we
         // will have to manually redo it ourselves
         if (!settings.get_boolean(Prefs.UNDECORATE_HALF_MAXIMIZED_KEY)) {
@@ -584,8 +605,7 @@ function startUndecorating() {
     changeWorkspaceID = global.screen.connect('notify::n-workspaces', onChangeNWorkspaces);
     // if we are not using the set_hide_titlebar hint, we must listen to maximize and unmaximize events.
     if (!USE_SET_HIDE_TITLEBAR) {
-        maxID = global.window_manager.connect('maximize', onMaximise);
-        minID = global.window_manager.connect('unmaximize', onUnmaximise);
+		sizeChangeID = global.window_manager.connect('size-change', onSizeChange);
         /* this is needed to prevent Metacity from interpreting an attempted drag
          * of an undecorated window as a fullscreen request. Otherwise thunderbird
          * (in particular) has no way to get out of fullscreen, resulting in the user
@@ -627,12 +647,10 @@ function startUndecorating() {
 /** Stop listening to events, restore all windows back to their original
  * decoration state. */
 function stopUndecorating() {
-    if (maxID) global.window_manager.disconnect(maxID);
-    if (minID) global.window_manager.disconnect(minID);
+	if (sizeChangeID) global.window_manager.disconnect(sizeChangeID);
     if (changeWorkspaceID) global.window_manager.disconnect(changeWorkspaceID);
     if (grabID) global.display.disconnect(grabID);
-    maxID = 0;
-    minID = 0;
+	sizeChangeID = 0;
     changeWorkspaceID = 0;
     grabID = 0;
 
