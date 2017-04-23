@@ -84,19 +84,16 @@ One-click install from [extensions.gnome.org](https://extensions.gnome.org/exten
 1. Download the .zip file on the [Downloads page](https://bitbucket.org/mathematicalcoffee/maximus-gnome-shell-extension/downloads).
 2. Open `gnome-tweak-tool`, go to "Shell Extensions", "Install Extension" and select the .zip file.
 
-## From the repository:
+## From the repository (bleeding edge)
 
-If using GNOME 3.4, 3.6, or 3.8, use the `gnome3.4` branch.
-Otherwise (GNOME 3.2), use the `stable` branch.
-
+This will build the extension based on the latest commit on the development branch, and may be unstable.
 ```
-hg clone ssh://hg@bitbucket.org/mathematicalcoffee/maximus-gnome-shell-extension
-hg up gnome3.4 # or `stable` if on GNOME 3.2
-cd maximus-gnome-shell-extension
+git clone git@github.com:luispabon/maximus-gnome-shell.git
+cd maximus-gnome-shell
 make # <-- VERY IMPORTANT
-cp -r maximus@mathematical.coffee.gmail.com ~/.local/share/gnome-shell/extensions
+cp -r build/maximus@luis.pabon.auronconsulting.co.uk ~/.local/share/gnome-shell/extensions
 # enable maximus if you haven't already:
-gnome-shell-extension-tool -e maximus@mathematical.coffee.gmail.com
+gnome-shell-extension-tool -e maximus@luis.pabon.auronconsulting.co.uk
 ```
 
 Now restart gnome-shell.
