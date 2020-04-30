@@ -1,3 +1,7 @@
+# Project abandoned
+
+This project is now abandoned. If you want an alternative that works much better, has more features, is kept in lockstep with GNOME releases and works flawlessly in Wayland, check [Unite](https://extensions.gnome.org/extension/1287/unite/)
+
 # Maximus GNOME Shell Extension
 
 The Maximus GNOME Shell Extension attempts to emulate the [Maximus](https://launchpad.net/maximus) package for the Ubuntu Netbook Remix.
